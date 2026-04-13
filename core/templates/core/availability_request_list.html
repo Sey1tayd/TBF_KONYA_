@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}Musaitlik Istekleri - TBF Konya{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0"><i class="bi bi-megaphone"></i> Musaitlik Istekleri</h4>
+    <a href="{% url 'core:availability_request_create' %}" class="btn btn-success">
+        <i class="bi bi-plus-lg"></i> Yeni Istek Olustur
+    </a>
+</div>
+
+{% if req_data %}
+<div class="table-responsive">
+    <table class="table table-hover">
+        <thead class="table-dark">
+            <tr>
+                <th>Baslik</th>
+                <th>Tarih Araligi</th>
+                <th>Durum</th>
+                <th>Yanit</th>
+                <th>Olusturulma</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in req_data %}
+            <tr>
+                <td>
+                    <strong>{{ item.request.title }}</strong>
+                    {% if item.request.description %}
+                    <br><small class="text-muted">{{ item.request.description|truncatewords:10 }}</small>
+                    {% endif %}
+                </td>
+                <td>{{ item.request.start_date|date:"d.m.Y" }} - {{ item.request.end_date|date:"d.m.Y" }}</td>
+                <td>
+                    {% if item.request.is_active %}
+                        <span class="badge bg-success">Aktif</span>
+                    {% else %}
+                        <span class="badge bg-secondary">Kapali</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="progress" style="width:120px;height:20px;">
+                        {% widthratio item.responded item.total 100 as pct %}
+                        <div class="progress-bar bg-info" style="width:{% widthratio item.responded item.total 100 %}%">
+                            {{ item.responded }}/{{ item.total }}
+                        </div>
+                    </div>
+                </td>
+                <td><small>{{ item.request.created_at|date:"d.m.Y H:i" }}</small></td>
+                <td>
+                    <a href="{% url 'core:availability_request_detail' item.request.pk %}" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-eye"></i> Ozet
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="alert alert-info">
+    <i class="bi bi-info-circle"></i> Henuz musaitlik istegi olusturulmamis.
+</div>
+{% endif %}
+{% endblock %}

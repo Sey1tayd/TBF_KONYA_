@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}Yeni Musaitlik Istegi - TBF Konya{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <h4 class="mb-3"><i class="bi bi-megaphone"></i> Yeni Musaitlik Istegi</h4>
+        <p class="text-muted">Gorevlilerden belirli tarih araligi icin musaitlik bildirmelerini isteyin.</p>
+
+        <div class="card">
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Baslik *</label>
+                        <input type="text" name="title" class="form-control"
+                               placeholder="Ornek: 31. Hafta Musaitlik" required>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Baslangic Tarihi *</label>
+                            <input type="date" name="start_date" class="form-control"
+                                   value="{{ default_start|date:'Y-m-d' }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Bitis Tarihi *</label>
+                            <input type="date" name="end_date" class="form-control"
+                                   value="{{ default_end|date:'Y-m-d' }}" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Aciklama</label>
+                        <textarea name="description" class="form-control" rows="2"
+                                  placeholder="Ek bilgi (istege bagli)"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Hedef Roller</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="target_roles" value="hakem" id="r_hakem" checked>
+                            <label class="form-check-label" for="r_hakem">Hakemler</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="target_roles" value="masa_gorevlisi" id="r_masa" checked>
+                            <label class="form-check-label" for="r_masa">Masa Gorevlileri</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="target_roles" value="gozlemci" id="r_gozlemci" checked>
+                            <label class="form-check-label" for="r_gozlemci">Gozlemciler</label>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-send"></i> Istek Olustur
+                        </button>
+                        <a href="{% url 'core:availability_request_list' %}" class="btn btn-outline-secondary">Iptal</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="alert alert-warning mt-3" style="font-size:13px;">
+            <i class="bi bi-exclamation-triangle"></i>
+            Yeni istek olusturuldiginda onceki aktif istek otomatik olarak kapatilir.
+            Gorevliler giris yaptiklarinda sadece aktif istegin tarihlerini gorecektir.
+        </div>
+    </div>
+</div>
+{% endblock %}

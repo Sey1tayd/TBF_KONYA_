@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Atama Listesi - {{ start_date|date:"d.m.Y" }} / {{ end_date|date:"d.m.Y" }}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; font-size: 10px; }
+        h1 { text-align: center; font-size: 14px; margin: 10px 0 5px; }
+        h2 { text-align: center; font-size: 11px; margin-bottom: 10px; color: #666; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #1a1a2e; color: #fff; padding: 4px 3px; font-size: 9px; text-align: center; border: 1px solid #333; }
+        td { padding: 3px 2px; border: 1px solid #999; font-size: 9px; white-space: nowrap; }
+        .team { font-weight: bold; }
+        .round-info { color: #dc3545; font-weight: bold; text-align: center; }
+        .footer { text-align: right; margin-top: 15px; font-size: 10px; color: #333; }
+        .footer .name { font-weight: bold; }
+        @media print {
+            @page { size: landscape; margin: 5mm; }
+            body { font-size: 9px; }
+        }
+        tr:nth-child(even) { background: #f8f9fa; }
+    </style>
+</head>
+<body>
+    <h1>KONYA BASKETBOL IL TEMSILCILIGI 2025-2026 SEZONU</h1>
+    <h2>HAKEM, GOZLEMCI VE MASA GOREVLISI ATAMALARI</h2>
+
+    <table>
+        <thead>
+            <tr>
+                <th>TARIH</th>
+                <th>SAAT</th>
+                <th>MAC NO</th>
+                <th>MAC TURU</th>
+                <th>A TAKIMI</th>
+                <th>B TAKIMI</th>
+                <th>SALON</th>
+                <th>BAS HAKEM</th>
+                <th>YARDIMCI HAKEM</th>
+                <th>TUR</th>
+                <th>SAYI GOR.</th>
+                <th>SAYI GOR.</th>
+                <th>SURE GOR.</th>
+                <th>SUT SAATI GOR.</th>
+                <th>GOZLEMCI</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in match_data %}
+            <tr>
+                <td>{{ item.match.date|date:"d.m.Y" }}<br>{{ item.day_name }}</td>
+                <td>{{ item.match.time|time:"H:i" }}</td>
+                <td>{{ item.match.match_code }}</td>
+                <td>{{ item.match.league.name }}</td>
+                <td class="team">{{ item.match.home_team_name }}</td>
+                <td class="team">{{ item.match.away_team_name }}</td>
+                <td>{{ item.match.venue.name|default:"-" }}</td>
+                <td>{% if item.assignment %}{{ item.assignment.head_referee.full_name|default:"" }}{% endif %}</td>
+                <td>{% if item.assignment %}{{ item.assignment.assistant_referee.full_name|default:"" }}{% endif %}</td>
+                <td class="round-info">{{ item.match.round_info|default:"***" }}</td>
+                <td>{% if item.assignment %}{{ item.assignment.scorer_1.full_name|default:"" }}{% endif %}</td>
+                <td>{% if item.assignment %}{{ item.assignment.scorer_2.full_name|default:"" }}{% endif %}</td>
+                <td>{% if item.assignment %}{{ item.assignment.timer.full_name|default:"" }}{% endif %}</td>
+                <td>{% if item.assignment %}{{ item.assignment.shot_clock.full_name|default:"" }}{% endif %}</td>
+                <td>{% if item.assignment %}{{ item.assignment.observer.full_name|default:"" }}{% endif %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="footer">
+        <p>GOREVLENDIRMELERDE IHK BILGISI DISINDA DEGISIKLIK YAPILMAYACAKTIR. BASARILAR DILERIM.</p>
+        <p class="name">IL TEMSILCISI</p>
+    </div>
+
+    <script>window.onload = function() { window.print(); }</script>
+</body>
+</html>

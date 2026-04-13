@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block title %}Yonetim Paneli - TBF Konya{% endblock %}
+
+{% block content %}
+<div class="row mb-3">
+    <div class="col-12">
+        <h4>Hosgeldiniz, {{ user.get_full_name|default:user.username }}</h4>
+        <p class="text-muted">{{ profile.get_role_display }} | {{ week_start|date:"d.m.Y" }} - {{ week_end|date:"d.m.Y" }} Haftasi</p>
+    </div>
+</div>
+
+<!-- Ozet Kartlari -->
+<div class="row mb-4 g-3">
+    <div class="col-md-3">
+        <div class="card h-100 border-primary">
+            <div class="card-body text-center">
+                <h2 class="text-primary mb-0">{{ total_upcoming }}</h2>
+                <small class="text-muted">Yaklasan Mac</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card h-100 border-warning">
+            <div class="card-body text-center">
+                <h2 class="text-warning mb-0">{{ unassigned_count }}</h2>
+                <small class="text-muted">Atanmamis Mac</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card h-100 border-success">
+            <div class="card-body text-center">
+                <h2 class="text-success mb-0">{{ assigned_count }}</h2>
+                <small class="text-muted">Atanmis Mac</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card h-100 border-info">
+            <div class="card-body text-center">
+                <h2 class="text-info mb-0">{{ reported_officials }}/{{ total_officials }}</h2>
+                <small class="text-muted">Musaitlik Bildiren</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Hizli Erisim -->
+<div class="row mb-4 g-3">
+    <div class="col-md-4">
+        <a href="{% url 'core:assignment_sheet' %}" class="btn btn-danger btn-lg w-100 py-3">
+            <i class="bi bi-table"></i><br>Atama Tablosu
+        </a>
+    </div>
+    <div class="col-md-4">
+        <a href="{% url 'core:availability_summary' %}" class="btn btn-primary btn-lg w-100 py-3">
+            <i class="bi bi-people"></i><br>Musaitlik Ozeti
+        </a>
+    </div>
+    <div class="col-md-4">
+        <a href="{% url 'core:assignment_pdf' %}?start_date={{ week_start|date:'Y-m-d' }}&end_date={{ week_end|date:'Y-m-d' }}"
+           class="btn btn-secondary btn-lg w-100 py-3" target="_blank">
+            <i class="bi bi-printer"></i><br>Yazdir
+        </a>
+    </div>
+</div>
+
+<!-- Bu Hafta Maclari -->
+{% if this_week_matches %}
+<div class="card">
+    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+        <h6 class="mb-0"><i class="bi bi-calendar-event"></i> Bu Hafta Maclari ({{ this_week_matches|length }})</h6>
+        <a href="{% url 'core:assignment_sheet' %}?start_date={{ week_start|date:'Y-m-d' }}&end_date={{ week_end|date:'Y-m-d' }}"
+           class="btn btn-sm btn-outline-light">Atama Yap</a>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm table-hover mb-0" style="font-size:13px;">
+            <thead class="table-light">
+                <tr>
+                    <th>Tarih</th>
+                    <th>Saat</th>
+                    <th>Mac No</th>
+                    <th>Lig</th>
+                    <th>Ev Sahibi</th>
+                    <th>Deplasman</th>
+                    <th>Salon</th>
+                    <th>Durum</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for match in this_week_matches %}
+                <tr>
+                    <td>{{ match.date|date:"d.m" }}</td>
+                    <td>{{ match.time|time:"H:i" }}</td>
+                    <td><code>{{ match.match_code }}</code></td>
+                    <td><small>{{ match.league.name }}</small></td>
+                    <td><strong>{{ match.home_team_name|default:"TBD" }}</strong></td>
+                    <td><strong>{{ match.away_team_name|default:"TBD" }}</strong></td>
+                    <td><small>{{ match.venue.name|default:"-" }}</small></td>
+                    <td>
+                        {% if match.assignment %}
+                            <span class="badge bg-success">Atandi</span>
+                        {% else %}
+                            <span class="badge bg-warning text-dark">Bekliyor</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="alert alert-info">
+    <i class="bi bi-info-circle"></i> Bu hafta oynanmamis mac bulunmuyor.
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+
+{% block title %}Musaitlik Ozeti - TBF Konya{% endblock %}
+
+{% block main_class %}px-2 mt-2{% endblock %}
+
+{% block extra_css %}
+<style>
+.avail-table {
+    font-size: 11px;
+    border-collapse: collapse;
+    width: 100%;
+    table-layout: fixed;
+}
+.avail-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #1a1a2e;
+    color: #fff;
+    padding: 4px 2px;
+    text-align: center;
+    font-size: 10px;
+    border: 1px solid #333;
+    line-height: 1.2;
+}
+.avail-table .name-col {
+    width: 160px;
+    min-width: 160px;
+    max-width: 160px;
+    position: sticky;
+    left: 0;
+    z-index: 5;
+    background: #fff;
+    padding: 2px 6px !important;
+    font-weight: 600;
+    font-size: 11px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border-right: 2px solid #1a1a2e;
+}
+.avail-table thead .name-col {
+    z-index: 15;
+    background: #1a1a2e;
+    color: #fff;
+    border-right: 2px solid #fff;
+}
+.avail-table .day-col {
+    width: 44px;
+    min-width: 44px;
+    max-width: 44px;
+    text-align: center;
+    padding: 1px !important;
+    cursor: default;
+}
+.avail-table tbody tr { height: 26px; }
+.avail-table tbody tr:hover { background: #fff3cd !important; }
+.avail-table tbody tr:hover .name-col { background: #fff3cd !important; }
+
+/* Durum renkleri */
+.st-m { background: #28a745 !important; color: #fff; font-weight: bold; }
+.st-d { background: #dc3545 !important; color: #fff; font-weight: bold; }
+.st-b { background: #f0f0f0 !important; color: #bbb; }
+
+/* Grup baslik */
+.grp td {
+    background: #343a40 !important;
+    color: #fff;
+    font-weight: bold;
+    font-size: 12px;
+    padding: 4px 8px !important;
+    position: sticky;
+    left: 0;
+}
+
+/* Gun baslik renkleri */
+.th-weekend { background: #2d1a3e !important; }
+.th-today { background: #0d6efd !important; }
+
+/* Ozet satiri */
+.summary-row td { background: #e9ecef !important; font-weight: bold; font-size: 10px; }
+.summary-row .name-col { background: #e9ecef !important; font-style: italic; }
+
+/* Filtre */
+.filter-strip {
+    background: #f8f9fa;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 13px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-2">
+    <h5 class="mb-0"><i class="bi bi-people-fill"></i> Musaitlik Ozeti</h5>
+    <div class="filter-strip d-flex align-items-center gap-2">
+        <form method="get" class="d-flex align-items-center gap-2">
+            <input type="date" name="start_date" class="form-control form-control-sm" style="width:135px;"
+                   value="{{ start_date|date:'Y-m-d' }}">
+            <span>-</span>
+            <input type="date" name="end_date" class="form-control form-control-sm" style="width:135px;"
+                   value="{{ end_date|date:'Y-m-d' }}">
+            <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-funnel"></i></button>
+        </form>
+        {% if active_request %}
+        <span class="badge bg-info">Aktif Istek: {{ active_request.title }}</span>
+        {% endif %}
+    </div>
+</div>
+
+<div style="overflow:auto; max-height:calc(100vh - 120px); border:1px solid #dee2e6; border-radius:4px;">
+    <table class="avail-table" id="avail-tbl">
+        <thead>
+            <tr>
+                <th class="name-col">Ad Soyad</th>
+                {% for d in date_range %}
+                <th class="day-col {% if d.weekday == 5 or d.weekday == 6 %}th-weekend{% endif %} {% if d.is_today %}th-today{% endif %}">
+                    {{ d.date|date:"d" }}<br>{{ d.short_name }}
+                </th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for group in summary_groups %}
+            <tr class="grp">
+                <td colspan="{{ col_count }}">{{ group.name }} ({{ group.rows|length }})</td>
+            </tr>
+            {% for row in group.rows %}
+            <tr>
+                <td class="name-col" title="{{ row.official.full_name }}">{{ row.official.full_name }}</td>
+                {% for day in row.days %}
+                <td class="day-col {% if day.status == 'musait' %}st-m{% elif day.status == 'dolu' %}st-d{% else %}st-b{% endif %}"
+                    {% if day.note %}title="{{ day.note }}"{% endif %}>
+                    {% if day.status == 'musait' %}&#10003;{% elif day.status == 'dolu' %}&#10007;{% else %}-{% endif %}
+                </td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+            <!-- Grup ozet satiri -->
+            <tr class="summary-row">
+                <td class="name-col">Musait / Toplam</td>
+                {% for count in group.day_counts %}
+                <td class="day-col">{{ count.available }}/{{ count.total }}</td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="mt-1 d-flex gap-3" style="font-size:11px;">
+    <span><span class="d-inline-block px-2 st-m rounded">&check;</span> Musait</span>
+    <span><span class="d-inline-block px-2 st-d rounded">&cross;</span> Dolu</span>
+    <span><span class="d-inline-block px-2 st-b rounded border">-</span> Bildirilmedi</span>
+</div>
+{% endblock %}

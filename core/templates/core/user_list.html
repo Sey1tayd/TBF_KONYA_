@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}Kullanici Listesi - TBF Konya{% endblock %}
+
+{% block extra_css %}
+<style>
+.user-table { font-size: 12px; }
+.user-table td, .user-table th { padding: 4px 8px; }
+.grp-header td { background: #343a40; color: #fff; font-weight: bold; font-size: 13px; }
+@media print {
+    .no-print { display: none !important; }
+    .user-table { font-size: 10px; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 no-print">
+    <h4 class="mb-0"><i class="bi bi-person-lines-fill"></i> Kullanici Listesi ({{ total }})</h4>
+    <button onclick="window.print()" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-printer"></i> Yazdir
+    </button>
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-sm table-bordered table-hover user-table mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th style="width:30px;">#</th>
+                    <th>Ad Soyad</th>
+                    <th>Kullanici Adi</th>
+                    <th>Sifre</th>
+                    <th>Rol</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for group_name, group_users in groups %}
+                {% if group_users %}
+                <tr class="grp-header">
+                    <td colspan="5">{{ group_name }} ({{ group_users|length }})</td>
+                </tr>
+                {% for p in group_users %}
+                <tr>
+                    <td class="text-muted">{{ forloop.counter }}</td>
+                    <td><strong>{{ p.full_name }}</strong></td>
+                    <td><code>{{ p.user.username }}</code></td>
+                    <td><code>tbf2025</code></td>
+                    <td>
+                        {% if p.role == 'hakem' %}<span class="badge bg-danger">Hakem</span>
+                        {% elif p.role == 'masa_gorevlisi' %}<span class="badge bg-primary">Masa Gor.</span>
+                        {% elif p.role == 'gozlemci' %}<span class="badge bg-dark">Gozlemci</span>
+                        {% elif p.role == 'il_temsilcisi' %}<span class="badge bg-warning text-dark">Il Temsilcisi</span>
+                        {% elif p.role == 'atama_sorumlusu' %}<span class="badge bg-success">Atama Sor.</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+                {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="mt-2 no-print" style="font-size:12px;">
+    <span class="text-muted">Varsayilan sifre: <code>tbf2025</code> | Admin: <code>admin</code> / <code>admin123</code></span>
+</div>
+{% endblock %}

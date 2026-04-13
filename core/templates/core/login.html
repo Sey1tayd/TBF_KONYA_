@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Giris - TBF Konya{% endblock %}
+
+{% block main_class %}{% endblock %}
+
+{% block content %}
+<div class="login-page">
+    <div class="login-card">
+        <div class="text-center mb-4">
+            <i class="bi bi-dribbble" style="font-size: 3rem; color: #e74c3c;"></i>
+            <h3 class="mt-2">TBF Konya</h3>
+            <p class="text-muted">Hakem ve Gorevli Atama Sistemi</p>
+        </div>
+
+        {% if error %}
+        <div class="alert alert-danger">{{ error }}</div>
+        {% endif %}
+
+        <form method="post">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label for="username" class="form-label">Kullanici Adi</label>
+                <input type="text" class="form-control" id="username" name="username" required autofocus>
+            </div>
+            <div class="mb-3">
+                <label for="password" class="form-label">Sifre</label>
+                <input type="password" class="form-control" id="password" name="password" required>
+            </div>
+            <button type="submit" class="btn btn-danger w-100">
+                <i class="bi bi-box-arrow-in-right"></i> Giris Yap
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

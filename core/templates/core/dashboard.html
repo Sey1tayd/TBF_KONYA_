@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+
+{% block title %}Anasayfa - TBF Konya{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h4>Hosgeldiniz, {{ user.get_full_name|default:user.username }}</h4>
+        <p class="text-muted">Rol: {{ profile.get_role_display }}</p>
+    </div>
+</div>
+
+{% if profile.role == 'atama_sorumlusu' or profile.role == 'il_temsilcisi' %}
+<!-- ATAMA SORUMLUSU / IL TEMSILCISI DASHBOARD -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card border-primary">
+            <div class="card-body text-center">
+                <h2 class="text-primary">{{ total_upcoming|default:"0" }}</h2>
+                <p class="mb-0">Yaklasan Mac</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-warning">
+            <div class="card-body text-center">
+                <h2 class="text-warning">{{ unassigned_count|default:"0" }}</h2>
+                <p class="mb-0">Atanmamis Mac</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-success">
+            <div class="card-body text-center">
+                <a href="{% url 'core:assignment_sheet' %}" class="btn btn-success btn-lg">
+                    <i class="bi bi-table"></i> Atama Tablosuna Git
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if upcoming_matches %}
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-calendar-event"></i> Yaklasan Maclar</h5>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm table-striped mb-0">
+            <thead>
+                <tr>
+                    <th>Tarih</th>
+                    <th>Saat</th>
+                    <th>Lig</th>
+                    <th>Ev Sahibi</th>
+                    <th>Deplasman</th>
+                    <th>Salon</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for match in upcoming_matches %}
+                <tr>
+                    <td>{{ match.date|date:"d.m.Y" }}</td>
+                    <td>{{ match.time|time:"H:i" }}</td>
+                    <td><small>{{ match.league.name }}</small></td>
+                    <td>{{ match.home_team_name }}</td>
+                    <td>{{ match.away_team_name }}</td>
+                    <td><small>{{ match.venue.name|default:"-" }}</small></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% elif profile.role == 'hakem' or profile.role == 'masa_gorevlisi' or profile.role == 'gozlemci' %}
+<!-- HAKEM / MASA GOREVLISI / GOZLEMCI DASHBOARD -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card border-success">
+            <div class="card-body text-center">
+                <a href="{% url 'core:availability' %}" class="btn btn-success btn-lg">
+                    <i class="bi bi-calendar-check"></i> Musaitlik Bildir
+                </a>
+                <p class="mt-2 text-muted mb-0">Dolu/bos gunlerinizi bildirin</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card border-info">
+            <div class="card-body text-center">
+                <h2 class="text-info">{{ my_matches|length|default:"0" }}</h2>
+                <p class="mb-0">Yaklasan Gorevim</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if my_matches %}
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-clipboard-check"></i> Gorevlerim</h5>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm table-striped mb-0">
+            <thead>
+                <tr>
+                    <th>Tarih</th>
+                    <th>Saat</th>
+                    <th>Mac</th>
+                    <th>Salon</th>
+                    <th>Gorev</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for match in my_matches %}
+                <tr>
+                    <td>{{ match.date|date:"d.m.Y" }}</td>
+                    <td>{{ match.time|time:"H:i" }}</td>
+                    <td>{{ match.home_team_name }} - {{ match.away_team_name }}</td>
+                    <td>{{ match.venue.name|default:"-" }}</td>
+                    <td>
+                        {% if match.assignment.head_referee == profile %}
+                            <span class="badge bg-danger">Bas Hakem</span>
+                        {% elif match.assignment.assistant_referee == profile %}
+                            <span class="badge bg-warning">Yardimci Hakem</span>
+                        {% elif match.assignment.scorer_1 == profile or match.assignment.scorer_2 == profile %}
+                            <span class="badge bg-primary">Sayi Gorevlisi</span>
+                        {% elif match.assignment.timer == profile %}
+                            <span class="badge bg-info">Sure Gorevlisi</span>
+                        {% elif match.assignment.shot_clock == profile %}
+                            <span class="badge bg-secondary">Sut Saati</span>
+                        {% elif match.assignment.observer == profile %}
+                            <span class="badge bg-dark">Gozlemci</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="alert alert-info">
+    <i class="bi bi-info-circle"></i> Henuz atanmis bir goreviniz bulunmuyor.
+</div>
+{% endif %}
+
+{% if my_availabilities %}
+<div class="card mt-3">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-calendar3"></i> Musaitlik Durumum</h5>
+    </div>
+    <div class="card-body">
+        <div class="d-flex flex-wrap gap-2">
+            {% for avail in my_availabilities %}
+            <div class="availability-badge {% if avail.is_available %}bg-success{% else %}bg-danger{% endif %} text-white rounded p-2">
+                <small>{{ avail.date|date:"d.m" }}</small>
+                <br>
+                {% if avail.is_available %}Musait{% else %}Dolu{% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}
