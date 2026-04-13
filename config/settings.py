@@ -7,8 +7,22 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-change-this-in-produc
 
 DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 'yes')
 
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*').split(',')
-CSRF_TRUSTED_ORIGINS = os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',') if os.environ.get('CSRF_TRUSTED_ORIGINS') else []
+# Railway otomatik domain tespiti
+RAILWAY_DOMAIN = os.environ.get('RAILWAY_PUBLIC_DOMAIN', '')  # orn: web-production-23104.up.railway.app
+
+ALLOWED_HOSTS = ['*']
+
+CSRF_TRUSTED_ORIGINS = ['http://localhost:7560', 'http://127.0.0.1:7560']
+if RAILWAY_DOMAIN:
+    CSRF_TRUSTED_ORIGINS += [
+        f'https://{RAILWAY_DOMAIN}',
+        f'http://{RAILWAY_DOMAIN}',
+    ]
+
+# Manuel override isterse
+_extra_csrf = os.environ.get('CSRF_TRUSTED_ORIGINS', '')
+if _extra_csrf:
+    CSRF_TRUSTED_ORIGINS += [o.strip() for o in _extra_csrf.split(',') if o.strip()]
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -79,6 +93,3 @@ LOGOUT_REDIRECT_URL = '/giris/'
 TBF_API_BASE = 'https://www.tbf.org.tr/api'
 TBF_CITY = 'KONYA'
 TBF_SEASON = '2025-2026'
-
-# Railway port
-PORT = os.environ.get('PORT', '8000')
