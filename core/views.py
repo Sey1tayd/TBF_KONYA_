@@ -57,36 +57,83 @@ def dashboard(request):
 
 def _admin_dashboard(request, profile):
     today = date.today()
-    upcoming = Match.objects.filter(date__gte=today, is_played=False)
-    assigned_ids = Assignment.objects.values_list('match_id', flat=True)
-    unassigned = upcoming.exclude(id__in=assigned_ids)
 
-    # Haftalik ozet (bu hafta)
-    week_start = today - timedelta(days=today.weekday())
+    # Filtreler
+    league_filter = request.GET.get('league', '')
+    status_filter = request.GET.get('status', '')  # all, upcoming, played, unassigned
+
+    # Hafta navigasyonu
+    week_offset = int(request.GET.get('week', 0))
+    week_start = today - timedelta(days=today.weekday()) + timedelta(weeks=week_offset)
     week_end = week_start + timedelta(days=6)
-    this_week_matches = Match.objects.filter(
-        date__range=(week_start, week_end), is_played=False
+
+    # Tum maclari cek (sadece bu haftanin)
+    qs = Match.objects.filter(
+        date__range=(week_start, week_end)
     ).select_related('league', 'venue').order_by('date', 'time')
 
-    # Musaitlik bildiren/bildirmeyen sayisi
+    if league_filter:
+        qs = qs.filter(league_id=league_filter)
+
+    assigned_ids = set(Assignment.objects.values_list('match_id', flat=True))
+
+    if status_filter == 'upcoming':
+        qs = qs.filter(is_played=False)
+    elif status_filter == 'played':
+        qs = qs.filter(is_played=True)
+    elif status_filter == 'unassigned':
+        qs = qs.filter(is_played=False).exclude(id__in=assigned_ids)
+
+    # Gunlere gore grupla
+    from collections import defaultdict
+    days_dict = defaultdict(list)
+    for m in qs:
+        days_dict[m.date].append(m)
+
+    weeks_data = []
+    current = week_start
+    while current <= week_end:
+        day_matches = days_dict.get(current, [])
+        weeks_data.append({
+            'date': current,
+            'day_name': _turkish_day(current),
+            'matches': day_matches,
+            'match_count': len(day_matches),
+            'is_today': current == today,
+        })
+        current += timedelta(days=1)
+
+    # Ozet istatistikler (tum sezon)
+    all_upcoming = Match.objects.filter(date__gte=today, is_played=False)
+    unassigned_upcoming = all_upcoming.exclude(id__in=assigned_ids)
+
     officials = UserProfile.objects.filter(
         is_active_official=True, role__in=['hakem', 'masa_gorevlisi', 'gozlemci']
     )
-    # Bu hafta icin musaitlik bildirenleri say
     avail_users = Availability.objects.filter(
         date__range=(week_start, week_end)
     ).values_list('user_id', flat=True).distinct()
 
+    leagues = League.objects.all().order_by('name')
+
     context = {
         'profile': profile,
-        'total_upcoming': upcoming.count(),
-        'unassigned_count': unassigned.count(),
-        'assigned_count': upcoming.count() - unassigned.count(),
-        'this_week_matches': this_week_matches,
+        'total_upcoming': all_upcoming.count(),
+        'unassigned_count': unassigned_upcoming.count(),
+        'assigned_count': all_upcoming.count() - unassigned_upcoming.count(),
         'total_officials': officials.count(),
         'reported_officials': avail_users.count(),
         'week_start': week_start,
         'week_end': week_end,
+        'week_offset': week_offset,
+        'prev_week': week_offset - 1,
+        'next_week': week_offset + 1,
+        'weeks_data': weeks_data,
+        'leagues': leagues,
+        'league_filter': league_filter,
+        'status_filter': status_filter,
+        'assigned_ids': assigned_ids,
+        'total_week_matches': qs.count(),
     }
     return render(request, 'core/admin_dashboard.html', context)
 
@@ -503,36 +550,40 @@ def user_list(request):
 
 @login_required
 def assignment_sheet(request):
-    """Excel benzeri atama sayfasi."""
+    """Excel benzeri atama sayfasi - secilen gunlere gore."""
     profile = _get_profile(request)
     if not _is_admin(profile):
         return redirect('core:dashboard')
 
-    start_date_str = request.GET.get('start_date')
-    end_date_str = request.GET.get('end_date')
-    league_id = request.GET.get('league')
     today = date.today()
+    league_id = request.GET.get('league', '')
 
-    if start_date_str:
-        try:
-            start_date = date.fromisoformat(start_date_str)
-        except ValueError:
-            start_date = today - timedelta(days=today.weekday())
+    # Secilen gunler: ?dates[]=2026-04-16&dates[]=2026-04-17 ...
+    selected_dates_str = request.GET.getlist('dates[]')
+    if not selected_dates_str:
+        # Default: bu haftanin oynanmamis mac olan gunleri
+        week_start = today - timedelta(days=today.weekday())
+        week_end = week_start + timedelta(days=6)
+        selected_dates = list(
+            Match.objects.filter(date__range=(week_start, week_end), is_played=False)
+            .values_list('date', flat=True).distinct().order_by('date')
+        )
     else:
-        start_date = today - timedelta(days=today.weekday())
+        selected_dates = []
+        for ds in selected_dates_str:
+            try:
+                selected_dates.append(date.fromisoformat(ds))
+            except ValueError:
+                pass
+        selected_dates = sorted(set(selected_dates))
 
-    if end_date_str:
-        try:
-            end_date = date.fromisoformat(end_date_str)
-        except ValueError:
-            end_date = start_date + timedelta(days=6)
+    if not selected_dates:
+        matches = Match.objects.none()
     else:
-        end_date = start_date + timedelta(days=6)
-
-    matches = Match.objects.filter(
-        date__range=(start_date, end_date),
-        is_played=False,
-    ).select_related('league', 'venue').order_by('date', 'time')
+        matches = Match.objects.filter(
+            date__in=selected_dates,
+            is_played=False,
+        ).select_related('league', 'venue').order_by('date', 'time')
 
     if league_id:
         matches = matches.filter(league_id=league_id)
@@ -545,7 +596,6 @@ def assignment_sheet(request):
             'timer__user', 'shot_clock__user',
             'observer__user'
         ).first()
-
         match_data.append({
             'match': match,
             'assignment': assignment,
@@ -564,13 +614,22 @@ def assignment_sheet(request):
         role='gozlemci', is_active_official=True
     ).select_related('user').order_by('user__first_name')
 
-    leagues = League.objects.filter(is_active=True).order_by('name')
+    leagues = League.objects.all().order_by('name')
 
-    # Musaitlik verisi (JSON)
+    # Musaitlik verisi (JSON) - secilen gunler icin
     availabilities = {}
-    for avail in Availability.objects.filter(date__range=(start_date, end_date)):
-        key = f"{avail.user_id}_{avail.date.isoformat()}"
-        availabilities[key] = avail.is_available
+    if selected_dates:
+        for avail in Availability.objects.filter(date__in=selected_dates):
+            key = f"{avail.user_id}_{avail.date.isoformat()}"
+            availabilities[key] = avail.is_available
+
+    # Takvimde gosterilecek mevcut mac gunleri (son 30 + sonraki 60 gun)
+    calendar_start = today - timedelta(days=30)
+    calendar_end = today + timedelta(days=60)
+    match_dates = list(
+        Match.objects.filter(date__range=(calendar_start, calendar_end), is_played=False)
+        .values_list('date', flat=True).distinct().order_by('date')
+    )
 
     context = {
         'match_data': match_data,
@@ -578,10 +637,10 @@ def assignment_sheet(request):
         'table_officials': table_officials,
         'observers': observers,
         'leagues': leagues,
-        'start_date': start_date,
-        'end_date': end_date,
+        'selected_dates': [d.isoformat() for d in selected_dates],
         'selected_league': league_id,
         'availabilities_json': json.dumps(availabilities),
+        'match_dates_json': json.dumps([d.isoformat() for d in match_dates]),
     }
     return render(request, 'core/assignment_sheet.html', context)
 
@@ -717,15 +776,25 @@ def assignment_pdf_view(request):
     if not _is_admin(profile):
         return redirect('core:dashboard')
 
-    start_date_str = request.GET.get('start_date')
-    end_date_str = request.GET.get('end_date')
     today = date.today()
-    start_date = date.fromisoformat(start_date_str) if start_date_str else today - timedelta(days=today.weekday())
-    end_date = date.fromisoformat(end_date_str) if end_date_str else start_date + timedelta(days=6)
+    selected_dates_str = request.GET.getlist('dates[]')
+    if selected_dates_str:
+        selected_dates = []
+        for ds in selected_dates_str:
+            try:
+                selected_dates.append(date.fromisoformat(ds))
+            except ValueError:
+                pass
+        selected_dates = sorted(set(selected_dates))
+        matches = Match.objects.filter(date__in=selected_dates, is_played=False)
+    else:
+        # Fallback: bu hafta
+        week_start = today - timedelta(days=today.weekday())
+        week_end = week_start + timedelta(days=6)
+        matches = Match.objects.filter(date__range=(week_start, week_end), is_played=False)
+        selected_dates = [week_start, week_end]
 
-    matches = Match.objects.filter(
-        date__range=(start_date, end_date), is_played=False,
-    ).select_related('league', 'venue').order_by('date', 'time')
+    matches = matches.select_related('league', 'venue').order_by('date', 'time')
 
     match_data = []
     for match in matches:
@@ -743,8 +812,8 @@ def assignment_pdf_view(request):
 
     context = {
         'match_data': match_data,
-        'start_date': start_date,
-        'end_date': end_date,
+        'selected_dates': selected_dates,
+        'today': today,
     }
     return render(request, 'core/assignment_pdf.html', context)
 

@@ -2,118 +2,168 @@
 
 {% block title %}Yonetim Paneli - TBF Konya{% endblock %}
 
+{% block extra_css %}
+<style>
+.day-block { border-left: 4px solid #dee2e6; margin-bottom: 1rem; }
+.day-block.today { border-left-color: #0d6efd; }
+.day-block.weekend { border-left-color: #fd7e14; }
+.day-header { background: #f8f9fa; padding: 6px 12px; font-weight: 600; font-size: 13px; display: flex; justify-content: space-between; align-items: center; }
+.day-header.today { background: #cfe2ff; }
+.day-header.weekend { background: #fff3cd; }
+.day-empty { padding: 4px 12px; font-size: 12px; color: #adb5bd; font-style: italic; }
+.match-row { display: flex; align-items: center; gap: 8px; padding: 5px 12px; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+.match-row:hover { background: #f8f9fa; }
+.match-row:last-child { border-bottom: none; }
+.match-time { min-width: 44px; color: #6c757d; font-size: 12px; }
+.match-code { min-width: 70px; }
+.match-league { min-width: 180px; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: #6c757d; }
+.match-teams { flex: 1; font-weight: 500; }
+.match-venue { min-width: 160px; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: #6c757d; }
+.week-nav { display: flex; align-items: center; gap: 8px; }
+.stat-card { border-radius: 8px; padding: 12px 16px; text-align: center; }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="row mb-3">
-    <div class="col-12">
-        <h4>Hosgeldiniz, {{ user.get_full_name|default:user.username }}</h4>
-        <p class="text-muted">{{ profile.get_role_display }} | {{ week_start|date:"d.m.Y" }} - {{ week_end|date:"d.m.Y" }} Haftasi</p>
-    </div>
-</div>
-
-<!-- Ozet Kartlari -->
-<div class="row mb-4 g-3">
-    <div class="col-md-3">
-        <div class="card h-100 border-primary">
-            <div class="card-body text-center">
-                <h2 class="text-primary mb-0">{{ total_upcoming }}</h2>
-                <small class="text-muted">Yaklasan Mac</small>
-            </div>
+<!-- Ust Bar: Istatistikler + Navigasyon -->
+<div class="row g-2 mb-3">
+    <div class="col-md-2">
+        <div class="stat-card border border-primary h-100">
+            <div class="fw-bold text-primary fs-4">{{ total_upcoming }}</div>
+            <small class="text-muted">Yaklasan Mac</small>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card h-100 border-warning">
-            <div class="card-body text-center">
-                <h2 class="text-warning mb-0">{{ unassigned_count }}</h2>
-                <small class="text-muted">Atanmamis Mac</small>
-            </div>
+    <div class="col-md-2">
+        <div class="stat-card border border-warning h-100">
+            <div class="fw-bold text-warning fs-4">{{ unassigned_count }}</div>
+            <small class="text-muted">Atanmamis</small>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card h-100 border-success">
-            <div class="card-body text-center">
-                <h2 class="text-success mb-0">{{ assigned_count }}</h2>
-                <small class="text-muted">Atanmis Mac</small>
-            </div>
+    <div class="col-md-2">
+        <div class="stat-card border border-success h-100">
+            <div class="fw-bold text-success fs-4">{{ assigned_count }}</div>
+            <small class="text-muted">Atanmis</small>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card h-100 border-info">
-            <div class="card-body text-center">
-                <h2 class="text-info mb-0">{{ reported_officials }}/{{ total_officials }}</h2>
-                <small class="text-muted">Musaitlik Bildiren</small>
-            </div>
+    <div class="col-md-2">
+        <div class="stat-card border border-info h-100">
+            <div class="fw-bold text-info fs-4">{{ reported_officials }}/{{ total_officials }}</div>
+            <small class="text-muted">Musaitlik Bildiren</small>
         </div>
     </div>
-</div>
-
-<!-- Hizli Erisim -->
-<div class="row mb-4 g-3">
-    <div class="col-md-4">
-        <a href="{% url 'core:assignment_sheet' %}" class="btn btn-danger btn-lg w-100 py-3">
-            <i class="bi bi-table"></i><br>Atama Tablosu
+    <div class="col-md-4 d-flex align-items-center gap-2 justify-content-end">
+        <a href="{% url 'core:assignment_sheet' %}" class="btn btn-danger btn-sm">
+            <i class="bi bi-table"></i> Atama Tablosu
         </a>
-    </div>
-    <div class="col-md-4">
-        <a href="{% url 'core:availability_summary' %}" class="btn btn-primary btn-lg w-100 py-3">
-            <i class="bi bi-people"></i><br>Musaitlik Ozeti
+        <a href="{% url 'core:availability_summary' %}" class="btn btn-primary btn-sm">
+            <i class="bi bi-people"></i> Musaitlik Ozeti
         </a>
-    </div>
-    <div class="col-md-4">
-        <a href="{% url 'core:assignment_pdf' %}?start_date={{ week_start|date:'Y-m-d' }}&end_date={{ week_end|date:'Y-m-d' }}"
-           class="btn btn-secondary btn-lg w-100 py-3" target="_blank">
-            <i class="bi bi-printer"></i><br>Yazdir
+        <a href="{% url 'core:assignment_pdf' %}" class="btn btn-secondary btn-sm" target="_blank">
+            <i class="bi bi-printer"></i> Yazdir
         </a>
     </div>
 </div>
 
-<!-- Bu Hafta Maclari -->
-{% if this_week_matches %}
-<div class="card">
-    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-        <h6 class="mb-0"><i class="bi bi-calendar-event"></i> Bu Hafta Maclari ({{ this_week_matches|length }})</h6>
-        <a href="{% url 'core:assignment_sheet' %}?start_date={{ week_start|date:'Y-m-d' }}&end_date={{ week_end|date:'Y-m-d' }}"
-           class="btn btn-sm btn-outline-light">Atama Yap</a>
-    </div>
-    <div class="table-responsive">
-        <table class="table table-sm table-hover mb-0" style="font-size:13px;">
-            <thead class="table-light">
-                <tr>
-                    <th>Tarih</th>
-                    <th>Saat</th>
-                    <th>Mac No</th>
-                    <th>Lig</th>
-                    <th>Ev Sahibi</th>
-                    <th>Deplasman</th>
-                    <th>Salon</th>
-                    <th>Durum</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for match in this_week_matches %}
-                <tr>
-                    <td>{{ match.date|date:"d.m" }}</td>
-                    <td>{{ match.time|time:"H:i" }}</td>
-                    <td><code>{{ match.match_code }}</code></td>
-                    <td><small>{{ match.league.name }}</small></td>
-                    <td><strong>{{ match.home_team_name|default:"TBD" }}</strong></td>
-                    <td><strong>{{ match.away_team_name|default:"TBD" }}</strong></td>
-                    <td><small>{{ match.venue.name|default:"-" }}</small></td>
-                    <td>
-                        {% if match.assignment %}
-                            <span class="badge bg-success">Atandi</span>
-                        {% else %}
-                            <span class="badge bg-warning text-dark">Bekliyor</span>
-                        {% endif %}
-                    </td>
-                </tr>
+<!-- Filtreler -->
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <form method="get" class="d-flex flex-wrap gap-2 align-items-center">
+            <input type="hidden" name="week" value="{{ week_offset }}">
+            <select name="league" class="form-select form-select-sm" style="width:220px;" onchange="this.form.submit()">
+                <option value="">Tum Ligler</option>
+                {% for lg in leagues %}
+                <option value="{{ lg.id }}" {% if league_filter == lg.id|stringformat:'s' %}selected{% endif %}>{{ lg.name }}</option>
                 {% endfor %}
-            </tbody>
-        </table>
+            </select>
+            <select name="status" class="form-select form-select-sm" style="width:160px;" onchange="this.form.submit()">
+                <option value="">Tum Maclar</option>
+                <option value="upcoming" {% if status_filter == 'upcoming' %}selected{% endif %}>Oynanmamis</option>
+                <option value="played" {% if status_filter == 'played' %}selected{% endif %}>Oynanan</option>
+                <option value="unassigned" {% if status_filter == 'unassigned' %}selected{% endif %}>Atanmamis</option>
+            </select>
+            {% if league_filter or status_filter %}
+            <a href="?week={{ week_offset }}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-x"></i> Filtre Temizle
+            </a>
+            {% endif %}
+            <span class="ms-auto text-muted" style="font-size:12px;">{{ total_week_matches }} mac</span>
+        </form>
     </div>
 </div>
-{% else %}
-<div class="alert alert-info">
-    <i class="bi bi-info-circle"></i> Bu hafta oynanmamis mac bulunmuyor.
+
+<!-- Hafta Navigasyonu -->
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <a href="?week={{ prev_week }}{% if league_filter %}&league={{ league_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}"
+       class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-chevron-left"></i> Onceki Hafta
+    </a>
+    <div class="text-center">
+        <h6 class="mb-0 fw-bold">{{ week_start|date:"d.m.Y" }} - {{ week_end|date:"d.m.Y" }}</h6>
+        {% if week_offset == 0 %}
+        <small class="text-muted">Bu Hafta</small>
+        {% elif week_offset == 1 %}
+        <small class="text-muted">Gelecek Hafta</small>
+        {% elif week_offset == -1 %}
+        <small class="text-muted">Gecen Hafta</small>
+        {% else %}
+        <small class="text-muted">{{ week_offset }} hafta {% if week_offset > 0 %}ilerisi{% else %}oncesi{% endif %}</small>
+        {% endif %}
+    </div>
+    <a href="?week={{ next_week }}{% if league_filter %}&league={{ league_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}"
+       class="btn btn-outline-secondary btn-sm">
+        Sonraki Hafta <i class="bi bi-chevron-right"></i>
+    </a>
 </div>
-{% endif %}
+
+<!-- Gunluk Mac Listesi -->
+{% for day in weeks_data %}
+<div class="day-block {% if day.is_today %}today{% elif day.date.weekday >= 5 %}weekend{% endif %}">
+    <div class="day-header {% if day.is_today %}today{% elif day.date.weekday >= 5 %}weekend{% endif %}">
+        <span>
+            <strong>{{ day.day_name }}</strong>
+            <span class="text-muted ms-2" style="font-weight:400;">{{ day.date|date:"d.m.Y" }}</span>
+            {% if day.is_today %}<span class="badge bg-primary ms-1">Bugun</span>{% endif %}
+        </span>
+        <span>
+            {% if day.match_count > 0 %}
+            <span class="badge bg-secondary">{{ day.match_count }} mac</span>
+            {% if day.match_count > 0 %}
+            <a href="{% url 'core:assignment_sheet' %}?dates[]={{ day.date|date:'Y-m-d' }}"
+               class="btn btn-outline-danger btn-sm ms-1" style="font-size:11px;">
+                <i class="bi bi-table"></i> Atama Yap
+            </a>
+            {% endif %}
+            {% endif %}
+        </span>
+    </div>
+    {% if day.matches %}
+    {% for match in day.matches %}
+    <div class="match-row">
+        <span class="match-time">{{ match.time|time:"H:i" }}</span>
+        <span class="match-code"><code style="font-size:11px;">{{ match.match_code }}</code></span>
+        <span class="match-league" title="{{ match.league.name }}">{{ match.league.name }}</span>
+        <span class="match-teams">
+            <strong>{{ match.home_team_name|default:"TBD" }}</strong>
+            <span class="text-muted mx-1">vs</span>
+            <strong>{{ match.away_team_name|default:"TBD" }}</strong>
+        </span>
+        <span class="match-venue" title="{{ match.venue.name|default:'-' }}">
+            <i class="bi bi-geo-alt" style="font-size:11px;"></i> {{ match.venue.name|default:"-" }}
+        </span>
+        <span>
+            {% if match.id in assigned_ids %}
+            <span class="badge bg-success" style="font-size:10px;">Atandi</span>
+            {% elif match.is_played %}
+            <span class="badge bg-secondary" style="font-size:10px;">Oynandi</span>
+            {% else %}
+            <span class="badge bg-warning text-dark" style="font-size:10px;">Bekliyor</span>
+            {% endif %}
+        </span>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="day-empty">Mac yok</div>
+    {% endif %}
+</div>
+{% endfor %}
 {% endblock %}

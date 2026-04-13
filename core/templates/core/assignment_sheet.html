@@ -26,71 +26,26 @@
     vertical-align: middle;
     white-space: nowrap;
 }
-.assignment-table tr:hover {
-    background: #fff3cd !important;
-}
-.assignment-table .date-cell {
-    font-weight: bold;
-    font-size: 11px;
-    min-width: 100px;
-}
-.assignment-table .time-cell {
-    text-align: center;
-    font-weight: bold;
-}
-.assignment-table .code-cell {
-    font-family: monospace;
-    font-size: 11px;
-    text-align: center;
-}
-.assignment-table .league-cell {
-    font-size: 10px;
-    max-width: 120px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-.assignment-table .team-cell {
-    font-weight: 600;
-    max-width: 150px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-.assignment-table .venue-cell {
-    font-size: 10px;
-    max-width: 130px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-/* Assignment select dropdowns */
+.assignment-table tr:hover { background: #fff3cd !important; }
+.assignment-table .date-cell { font-weight: bold; font-size: 11px; min-width: 100px; }
+.assignment-table .time-cell { text-align: center; font-weight: bold; }
+.assignment-table .code-cell { font-family: monospace; font-size: 11px; text-align: center; }
+.assignment-table .league-cell { font-size: 10px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+.assignment-table .team-cell { font-weight: 600; max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
+.assignment-table .venue-cell { font-size: 10px; max-width: 130px; overflow: hidden; text-overflow: ellipsis; }
 .assign-select {
-    font-size: 11px;
-    padding: 1px 2px;
-    border: 1px solid transparent;
-    background: transparent;
-    width: 100%;
-    min-width: 120px;
-    cursor: pointer;
-    appearance: none;
-    -webkit-appearance: none;
+    font-size: 11px; padding: 1px 2px; border: 1px solid transparent;
+    background: transparent; width: 100%; min-width: 120px; cursor: pointer;
+    appearance: none; -webkit-appearance: none;
 }
 .assign-select:hover, .assign-select:focus {
-    border-color: #0d6efd;
-    background: #fff;
-    appearance: auto;
-    -webkit-appearance: auto;
+    border-color: #0d6efd; background: #fff;
+    appearance: auto; -webkit-appearance: auto;
 }
-.assign-select option {
-    font-size: 12px;
-}
-
-/* Musaitlik renkleri */
+.assign-select option { font-size: 12px; }
 .assign-select.available { background: #d4edda; }
 .assign-select.unavailable { background: #f8d7da; }
-.assign-select.unknown { background: #fff; }
 .assign-select.assigned { background: #d1ecf1; font-weight: bold; }
-
-/* Satir renkleri - gun bazli (PDF'teki gibi) */
 .day-group-0 { background: #ffffff; }
 .day-group-1 { background: #f0f8ff; }
 .day-group-2 { background: #fff8f0; }
@@ -98,72 +53,58 @@
 .day-group-4 { background: #fff0f8; }
 .day-group-5 { background: #fffff0; }
 .day-group-6 { background: #f8f0ff; }
-
-.round-info-cell {
-    font-size: 10px;
-    color: #dc3545;
-    font-weight: bold;
-    text-align: center;
-}
-
-/* Saving indicator */
+.round-info-cell { font-size: 10px; color: #dc3545; font-weight: bold; text-align: center; }
 .saving { opacity: 0.5; }
+@keyframes flash-green { 0% { background: #28a745; } 100% { background: transparent; } }
 .save-ok { animation: flash-green 0.5s; }
-@keyframes flash-green {
-    0% { background: #28a745; }
-    100% { background: transparent; }
-}
 
-.filter-bar {
-    background: #f8f9fa;
-    padding: 10px 15px;
-    border-radius: 5px;
-    margin-bottom: 10px;
+/* Gun secici */
+.date-picker-grid { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px; }
+.date-btn {
+    padding: 4px 10px; font-size: 12px; border: 1px solid #dee2e6;
+    border-radius: 4px; cursor: pointer; background: #f8f9fa; user-select: none;
+    min-width: 80px; text-align: center;
 }
+.date-btn:hover { border-color: #0d6efd; background: #e7f1ff; }
+.date-btn.selected { background: #0d6efd; color: #fff; border-color: #0d6efd; }
+.date-btn.has-matches { border-color: #fd7e14; }
+.date-btn.selected.has-matches { background: #fd7e14; border-color: #fd7e14; }
+.date-btn .match-cnt { font-size: 10px; display: block; opacity: 0.8; }
+.filter-bar { background: #f8f9fa; padding: 10px 15px; border-radius: 5px; margin-bottom: 10px; }
 </style>
 {% endblock %}
 
 {% block content %}
 <!-- Filtre Bar -->
-<div class="filter-bar d-flex flex-wrap align-items-center gap-2">
-    <form method="get" class="d-flex flex-wrap align-items-center gap-2">
-        <div class="d-flex align-items-center gap-1">
-            <label class="form-label mb-0 fw-bold" style="font-size:13px;">Baslangic:</label>
-            <input type="date" name="start_date" class="form-control form-control-sm" style="width:150px;"
-                   value="{{ start_date|date:'Y-m-d' }}">
+<div class="filter-bar">
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+        <strong style="font-size:13px;"><i class="bi bi-calendar3"></i> Gun Sec:</strong>
+        <div class="date-picker-grid" id="date-picker">
+            <!-- JS ile dolacak -->
         </div>
-        <div class="d-flex align-items-center gap-1">
-            <label class="form-label mb-0 fw-bold" style="font-size:13px;">Bitis:</label>
-            <input type="date" name="end_date" class="form-control form-control-sm" style="width:150px;"
-                   value="{{ end_date|date:'Y-m-d' }}">
-        </div>
-        <div class="d-flex align-items-center gap-1">
-            <label class="form-label mb-0 fw-bold" style="font-size:13px;">Lig:</label>
-            <select name="league" class="form-select form-select-sm" style="width:200px;">
-                <option value="">Tum Ligler</option>
-                {% for league in leagues %}
-                <option value="{{ league.id }}" {% if selected_league == league.id|stringformat:"d" %}selected{% endif %}>
-                    {{ league.name }}
-                </option>
-                {% endfor %}
-            </select>
-        </div>
-        <button type="submit" class="btn btn-sm btn-primary">
-            <i class="bi bi-search"></i> Filtrele
+        <select id="league-filter" class="form-select form-select-sm ms-2" style="width:200px;">
+            <option value="">Tum Ligler</option>
+            {% for league in leagues %}
+            <option value="{{ league.id }}" {% if selected_league == league.id|stringformat:"d" %}selected{% endif %}>
+                {{ league.name }}
+            </option>
+            {% endfor %}
+        </select>
+        <button id="apply-filter" class="btn btn-sm btn-primary">
+            <i class="bi bi-search"></i> Goster
         </button>
-        <a href="{% url 'core:assignment_pdf' %}?start_date={{ start_date|date:'Y-m-d' }}&end_date={{ end_date|date:'Y-m-d' }}"
-           class="btn btn-sm btn-outline-secondary" target="_blank">
+        <a href="{% url 'core:assignment_pdf' %}" class="btn btn-sm btn-outline-secondary" target="_blank">
             <i class="bi bi-printer"></i> Yazdir
         </a>
-    </form>
-    <div class="ms-auto">
-        <small class="text-muted">{{ match_data|length }} mac listeleniyor</small>
-        <span id="save-status" class="ms-2"></span>
+        <span class="ms-auto text-muted" style="font-size:12px;">
+            {{ match_data|length }} mac listeleniyor
+            <span id="save-status" class="ms-2"></span>
+        </span>
     </div>
 </div>
 
-<!-- Atama Tablosu (Excel benzeri) -->
-<div class="table-responsive" style="max-height: calc(100vh - 180px); overflow: auto;">
+<!-- Atama Tablosu -->
+<div class="table-responsive" style="max-height: calc(100vh - 200px); overflow: auto;">
     <table class="table assignment-table" id="assignment-table">
         <thead>
             <tr>
@@ -197,97 +138,67 @@
                 <td class="team-cell" title="{{ item.match.home_team_name }}">{{ item.match.home_team_name }}</td>
                 <td class="team-cell" title="{{ item.match.away_team_name }}">{{ item.match.away_team_name }}</td>
                 <td class="venue-cell" title="{{ item.match.venue.name|default:'' }}">{{ item.match.venue.name|default:"-" }}</td>
-
                 <!-- BAS HAKEM -->
                 <td>
                     <select class="assign-select" data-field="head_referee" data-role="hakem">
                         <option value="">---</option>
                         {% for ref in referees %}
-                        <option value="{{ ref.id }}"
-                            {% if item.assignment and item.assignment.head_referee_id == ref.id %}selected{% endif %}>
-                            {{ ref.full_name }}
-                        </option>
+                        <option value="{{ ref.id }}" {% if item.assignment and item.assignment.head_referee_id == ref.id %}selected{% endif %}>{{ ref.full_name }}</option>
                         {% endfor %}
                     </select>
                 </td>
-
                 <!-- YARDIMCI HAKEM -->
                 <td>
                     <select class="assign-select" data-field="assistant_referee" data-role="hakem">
                         <option value="">---</option>
                         {% for ref in referees %}
-                        <option value="{{ ref.id }}"
-                            {% if item.assignment and item.assignment.assistant_referee_id == ref.id %}selected{% endif %}>
-                            {{ ref.full_name }}
-                        </option>
+                        <option value="{{ ref.id }}" {% if item.assignment and item.assignment.assistant_referee_id == ref.id %}selected{% endif %}>{{ ref.full_name }}</option>
                         {% endfor %}
                     </select>
                 </td>
-
-                <!-- TUR BILGISI -->
                 <td class="round-info-cell">{{ item.match.round_info|default:"***" }}</td>
-
-                <!-- SAYI GOREVLISI 1 -->
+                <!-- SAYI 1 -->
                 <td>
                     <select class="assign-select" data-field="scorer_1" data-role="masa">
                         <option value="">---</option>
                         {% for off in table_officials %}
-                        <option value="{{ off.id }}"
-                            {% if item.assignment and item.assignment.scorer_1_id == off.id %}selected{% endif %}>
-                            {{ off.full_name }}
-                        </option>
+                        <option value="{{ off.id }}" {% if item.assignment and item.assignment.scorer_1_id == off.id %}selected{% endif %}>{{ off.full_name }}</option>
                         {% endfor %}
                     </select>
                 </td>
-
-                <!-- SAYI GOREVLISI 2 -->
+                <!-- SAYI 2 -->
                 <td>
                     <select class="assign-select" data-field="scorer_2" data-role="masa">
                         <option value="">---</option>
                         {% for off in table_officials %}
-                        <option value="{{ off.id }}"
-                            {% if item.assignment and item.assignment.scorer_2_id == off.id %}selected{% endif %}>
-                            {{ off.full_name }}
-                        </option>
+                        <option value="{{ off.id }}" {% if item.assignment and item.assignment.scorer_2_id == off.id %}selected{% endif %}>{{ off.full_name }}</option>
                         {% endfor %}
                     </select>
                 </td>
-
-                <!-- SURE GOREVLISI -->
+                <!-- SURE -->
                 <td>
                     <select class="assign-select" data-field="timer" data-role="masa">
                         <option value="">---</option>
                         {% for off in table_officials %}
-                        <option value="{{ off.id }}"
-                            {% if item.assignment and item.assignment.timer_id == off.id %}selected{% endif %}>
-                            {{ off.full_name }}
-                        </option>
+                        <option value="{{ off.id }}" {% if item.assignment and item.assignment.timer_id == off.id %}selected{% endif %}>{{ off.full_name }}</option>
                         {% endfor %}
                     </select>
                 </td>
-
-                <!-- SUT SAATI GOREVLISI -->
+                <!-- SUT SAATI -->
                 <td>
                     <select class="assign-select" data-field="shot_clock" data-role="masa">
                         <option value="">---</option>
                         {% for off in table_officials %}
-                        <option value="{{ off.id }}"
-                            {% if item.assignment and item.assignment.shot_clock_id == off.id %}selected{% endif %}>
-                            {{ off.full_name }}
-                        </option>
+                        <option value="{{ off.id }}" {% if item.assignment and item.assignment.shot_clock_id == off.id %}selected{% endif %}>{{ off.full_name }}</option>
                         {% endfor %}
                     </select>
                 </td>
-
                 <!-- GOZLEMCI -->
                 <td>
                     <select class="assign-select" data-field="observer" data-role="gozlemci">
                         <option value="">---</option>
                         {% for obs in observers %}
-                        <option value="{{ obs.id }}"
-                            {% if item.assignment and item.assignment.observer_id == obs.id %}selected{% endif %}>
-                            {{ obs.full_name }}
-                        </option>
+                        <option value="{{ obs.id }}" {% if item.assignment and item.assignment.observer_id == obs.id %}selected{% endif %}>{{ obs.full_name }}</option>
                         {% endfor %}
                     </select>
                 </td>
@@ -296,8 +207,8 @@
             <tr>
                 <td colspan="15" class="text-center text-muted py-4">
                     <i class="bi bi-calendar-x" style="font-size: 2rem;"></i>
-                    <br>Bu tarih araliginda mac bulunamadi.
-                    <br><small>TBF verilerini cekmeyi deneyin: <code>python manage.py sync_tbf</code></small>
+                    <br>Seçilen gunlerde oynanmamis mac bulunamadi.
+                    <br><small>Yukardaki takvimden atama yapmak istediginiz gunleri secin.</small>
                 </td>
             </tr>
             {% endfor %}
@@ -310,17 +221,77 @@
 <script>
 const CSRF_TOKEN = '{{ csrf_token }}';
 const AVAILABILITIES = {{ availabilities_json|safe }};
+const MATCH_DATES = {{ match_dates_json|safe }};  // mac olan gunler
+const SELECTED_DATES = {{ selected_dates|safe }};
 const SAVE_URL = '{% url "core:assignment_save" %}';
 
-// Musaitlik renklerini uygula
+// Takvim olustur: bugun - 7 gun oncesi ile + 60 gun
+function buildDatePicker() {
+    const picker = document.getElementById('date-picker');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const start = new Date(today);
+    start.setDate(start.getDate() - 7);
+    const end = new Date(today);
+    end.setDate(end.getDate() + 60);
+
+    const matchDateSet = new Set(MATCH_DATES);
+    const selectedSet = new Set(SELECTED_DATES);
+
+    const days = ['Paz', 'Pzt', 'Sal', 'Car', 'Per', 'Cum', 'Cmt'];
+    const months = ['Oca', 'Sub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Agu', 'Eyl', 'Eki', 'Kas', 'Ara'];
+
+    let current = new Date(start);
+    let lastMonth = -1;
+
+    while (current <= end) {
+        const iso = current.toISOString().slice(0, 10);
+        const hasMatches = matchDateSet.has(iso);
+        const isSelected = selectedSet.has(iso);
+
+        if (!hasMatches) {
+            current.setDate(current.getDate() + 1);
+            continue;
+        }
+
+        // Ay ayiraci
+        if (current.getMonth() !== lastMonth) {
+            const sep = document.createElement('div');
+            sep.style.cssText = 'width:100%;font-size:11px;font-weight:700;color:#6c757d;padding:2px 4px;';
+            sep.textContent = months[current.getMonth()] + ' ' + current.getFullYear();
+            picker.appendChild(sep);
+            lastMonth = current.getMonth();
+        }
+
+        const btn = document.createElement('div');
+        btn.className = 'date-btn' + (hasMatches ? ' has-matches' : '') + (isSelected ? ' selected' : '');
+        btn.dataset.date = iso;
+        btn.innerHTML = `<span>${days[current.getDay()]} ${current.getDate()}</span>`;
+        btn.addEventListener('click', () => btn.classList.toggle('selected'));
+        picker.appendChild(btn);
+
+        current.setDate(current.getDate() + 1);
+    }
+}
+
+// Filtre uygula - secilen gunler ile sayfayi yenile
+document.getElementById('apply-filter').addEventListener('click', () => {
+    const selected = Array.from(document.querySelectorAll('.date-btn.selected')).map(b => b.dataset.date);
+    const league = document.getElementById('league-filter').value;
+    const params = new URLSearchParams();
+    selected.forEach(d => params.append('dates[]', d));
+    if (league) params.set('league', league);
+    window.location.href = '{% url "core:assignment_sheet" %}?' + params.toString();
+});
+
+// Musaitlik renkleri
 function applyAvailabilityColors() {
     document.querySelectorAll('.assign-select').forEach(select => {
         const row = select.closest('tr');
         const matchDate = row.dataset.matchDate;
         const userId = select.value;
-
-        select.classList.remove('available', 'unavailable', 'unknown', 'assigned');
-
+        select.classList.remove('available', 'unavailable', 'assigned');
         if (userId) {
             const key = userId + '_' + matchDate;
             if (AVAILABILITIES[key] === true) {
@@ -334,103 +305,70 @@ function applyAvailabilityColors() {
     });
 }
 
-// Atama kaydet (AJAX)
+// AJAX Kaydet
 function saveAssignment(select) {
     const row = select.closest('tr');
     const matchId = row.dataset.matchId;
     const field = select.dataset.field;
     const userId = select.value || null;
-
     const statusEl = document.getElementById('save-status');
     statusEl.innerHTML = '<span class="text-warning"><i class="bi bi-hourglass-split"></i> Kaydediliyor...</span>';
     select.classList.add('saving');
 
     fetch(SAVE_URL, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': CSRF_TOKEN,
-        },
-        body: JSON.stringify({
-            match_id: matchId,
-            field: field,
-            user_id: userId ? parseInt(userId) : null,
-        })
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+        body: JSON.stringify({ match_id: matchId, field: field, user_id: userId ? parseInt(userId) : null })
     })
-    .then(resp => resp.json())
+    .then(r => r.json())
     .then(data => {
         select.classList.remove('saving');
         if (data.success) {
             statusEl.innerHTML = '<span class="text-success"><i class="bi bi-check-circle"></i> Kaydedildi</span>';
-            select.classList.add('save-ok');
-            setTimeout(() => {
-                statusEl.innerHTML = '';
-                select.classList.remove('save-ok');
-            }, 2000);
+            setTimeout(() => statusEl.innerHTML = '', 2000);
         } else {
             statusEl.innerHTML = '<span class="text-danger"><i class="bi bi-x-circle"></i> ' + (data.error || 'Hata') + '</span>';
         }
         applyAvailabilityColors();
     })
-    .catch(err => {
+    .catch(() => {
         select.classList.remove('saving');
-        statusEl.innerHTML = '<span class="text-danger"><i class="bi bi-x-circle"></i> Baglanti hatasi</span>';
+        statusEl.innerHTML = '<span class="text-danger">Baglanti hatasi</span>';
     });
 }
 
-// Event listeners
 document.querySelectorAll('.assign-select').forEach(select => {
-    select.addEventListener('change', function() {
-        saveAssignment(this);
-    });
+    select.addEventListener('change', () => saveAssignment(select));
 });
 
-// Klavye navigasyonu (Excel benzeri)
-document.querySelectorAll('.assign-select').forEach((select, idx, all) => {
+// Klavye navigasyonu
+document.querySelectorAll('.assign-select').forEach((select) => {
     select.addEventListener('keydown', function(e) {
         const row = this.closest('tr');
         const cells = Array.from(row.querySelectorAll('.assign-select'));
         const colIdx = cells.indexOf(this);
         const rows = Array.from(document.querySelectorAll('#assignment-table tbody tr'));
         const rowIdx = rows.indexOf(row);
-
         let target = null;
 
         if (e.key === 'Tab' && !e.shiftKey) {
-            // Saga git
-            if (colIdx < cells.length - 1) {
-                target = cells[colIdx + 1];
-            } else if (rowIdx < rows.length - 1) {
-                target = rows[rowIdx + 1].querySelectorAll('.assign-select')[0];
-            }
+            target = colIdx < cells.length - 1 ? cells[colIdx + 1]
+                   : rowIdx < rows.length - 1 ? rows[rowIdx + 1].querySelectorAll('.assign-select')[0] : null;
         } else if (e.key === 'Tab' && e.shiftKey) {
-            // Sola git
-            if (colIdx > 0) {
-                target = cells[colIdx - 1];
-            } else if (rowIdx > 0) {
-                const prevCells = rows[rowIdx - 1].querySelectorAll('.assign-select');
-                target = prevCells[prevCells.length - 1];
-            }
-        } else if (e.key === 'ArrowDown') {
-            if (rowIdx < rows.length - 1) {
-                const nextCells = rows[rowIdx + 1].querySelectorAll('.assign-select');
-                target = nextCells[colIdx] || nextCells[nextCells.length - 1];
-            }
-        } else if (e.key === 'ArrowUp') {
-            if (rowIdx > 0) {
-                const prevCells = rows[rowIdx - 1].querySelectorAll('.assign-select');
-                target = prevCells[colIdx] || prevCells[prevCells.length - 1];
-            }
+            target = colIdx > 0 ? cells[colIdx - 1]
+                   : rowIdx > 0 ? [...rows[rowIdx - 1].querySelectorAll('.assign-select')].pop() : null;
+        } else if (e.key === 'ArrowDown' && rowIdx < rows.length - 1) {
+            const next = rows[rowIdx + 1].querySelectorAll('.assign-select');
+            target = next[colIdx] || next[next.length - 1];
+        } else if (e.key === 'ArrowUp' && rowIdx > 0) {
+            const prev = rows[rowIdx - 1].querySelectorAll('.assign-select');
+            target = prev[colIdx] || prev[prev.length - 1];
         }
-
-        if (target) {
-            e.preventDefault();
-            target.focus();
-        }
+        if (target) { e.preventDefault(); target.focus(); }
     });
 });
 
-// Sayfa yuklendiginde renkleri uygula
+buildDatePicker();
 applyAvailabilityColors();
 </script>
 {% endblock %}
