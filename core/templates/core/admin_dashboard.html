@@ -18,9 +18,12 @@
 .match-time { min-width: 44px; color: #6c757d; font-size: 12px; }
 .match-code { min-width: 70px; }
 .match-teams { flex: 1; font-weight: 500; }
-.match-venue { min-width: 150px; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: #6c757d; }
+.match-venue { min-width: 150px; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 3px; }
 .stat-card { border-radius: 8px; padding: 12px 16px; text-align: center; }
 .league-badge { font-size: 10px; padding: 2px 6px; border-radius: 3px; }
+.assignment-info { font-size: 11px; color: #495057; display: flex; flex-wrap: wrap; gap: 2px 10px; padding-left: 52px; padding-bottom: 2px; }
+.assignment-info .ref-name { font-weight: 600; }
+.assignment-info .ref-label { color: #6c757d; font-size: 10px; }
 </style>
 {% endblock %}
 
@@ -127,7 +130,7 @@
                 <span class="badge bg-light text-dark ms-1" style="font-size:9px;">{{ cg.list|length }}</span>
             </span>
             {% endfor %}
-            <a href="{% url 'core:assignment_sheet' %}?dates[]={{ day.date|date:'Y-m-d' }}"
+            <a href="{% url 'core:assignment_sheet' %}?week={{ week_offset }}"
                class="btn btn-outline-danger btn-sm py-0 px-2 ms-1" style="font-size:11px;">
                 <i class="bi bi-table"></i> Atama
             </a>
@@ -149,7 +152,8 @@
         <span class="text-muted fw-normal">{{ cg.list|length }} mac</span>
     </div>
     {% for match in cg.list %}
-    <div class="match-row">
+    <div>
+      <div class="match-row">
         <span class="match-time">{{ match.time|time:"H:i" }}</span>
         <span class="match-code"><code style="font-size:11px;">{{ match.match_code }}</code></span>
         <span class="match-teams">
@@ -160,7 +164,7 @@
         {% if match.round_info %}
         <span class="badge bg-danger" style="font-size:10px;">{{ match.round_info }}</span>
         {% endif %}
-        <span class="match-venue">
+        <span class="match-venue" {% if match._venue_color %}style="background:{{ match._venue_color }};"{% endif %}>
             <i class="bi bi-geo-alt" style="font-size:10px;"></i> {{ match.venue.name|default:"-" }}
         </span>
         <span>
@@ -172,6 +176,20 @@
             <span class="badge bg-warning text-dark" style="font-size:10px;">Bekliyor</span>
             {% endif %}
         </span>
+      </div>
+      {% if match._assignment %}
+      <div class="assignment-info">
+        {% if match._assignment.head_referee %}
+        <span><span class="ref-label">1.Hakem:</span> <span class="ref-name">{{ match._assignment.head_referee.full_name }}</span></span>
+        {% endif %}
+        {% if match._assignment.assistant_referee %}
+        <span><span class="ref-label">2.Hakem:</span> <span class="ref-name">{{ match._assignment.assistant_referee.full_name }}</span></span>
+        {% endif %}
+        {% if match._assignment.observer %}
+        <span><span class="ref-label">Gozlemci:</span> <span class="ref-name">{{ match._assignment.observer.full_name }}</span></span>
+        {% endif %}
+      </div>
+      {% endif %}
     </div>
     {% endfor %}
     {% endfor %}

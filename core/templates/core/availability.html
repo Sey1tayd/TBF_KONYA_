@@ -4,24 +4,26 @@
 {% block content %}
 <h4 class="mb-3"><i class="bi bi-calendar-check"></i> Musaitlik Bildir</h4>
 
-{% if active_request %}
-<div class="alert alert-info d-flex align-items-start mb-3 py-2">
-  <i class="bi bi-megaphone-fill me-2 fs-5 mt-1"></i>
-  <div>
-    <strong>{{ active_request.title }}</strong>
-    {% if active_request.description %}<br><small>{{ active_request.description }}</small>{% endif %}
-    <div class="mt-1" style="font-size:12px;">
-      <span class="badge bg-primary me-1">{{ active_request.date_list|length }} gun secilmis</span>
-      {% if active_request.deadline %}
-        {% if active_request.deadline_passed %}
-          <span class="badge bg-danger"><i class="bi bi-clock"></i> Son tarih gecti: {{ active_request.deadline|date:"d.m.Y H:i" }}</span>
-        {% else %}
-          <span class="badge bg-warning text-dark"><i class="bi bi-clock"></i> Son bildirim: {{ active_request.deadline|date:"d.m.Y H:i" }}</span>
+{% if active_requests %}
+  {% for req in active_requests %}
+  <div class="alert alert-info d-flex align-items-start mb-2 py-2">
+    <i class="bi bi-megaphone-fill me-2 fs-5 mt-1"></i>
+    <div>
+      <strong>{{ req.title }}</strong>
+      {% if req.description %}<br><small>{{ req.description }}</small>{% endif %}
+      <div class="mt-1" style="font-size:12px;">
+        <span class="badge bg-primary me-1">{{ req.date_list|length }} gun</span>
+        {% if req.deadline %}
+          {% if req.deadline_passed %}
+            <span class="badge bg-danger"><i class="bi bi-clock"></i> Son tarih gecti: {{ req.deadline|date:"d.m.Y H:i" }}</span>
+          {% else %}
+            <span class="badge bg-warning text-dark"><i class="bi bi-clock"></i> Son bildirim: {{ req.deadline|date:"d.m.Y H:i" }}</span>
+          {% endif %}
         {% endif %}
-      {% endif %}
+      </div>
     </div>
   </div>
-</div>
+  {% endfor %}
 {% else %}
 <p class="text-muted">Aktif bir musaitlik istegi yok. Asagida onumuzdeki 14 gun gosteriliyor.</p>
 {% endif %}

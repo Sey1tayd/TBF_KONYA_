@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Yeni Kullanici - TBF Konya{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+    <h4 class="mb-3"><i class="bi bi-person-plus"></i> Yeni Kullanici Olustur</h4>
+
+    <div class="card">
+      <div class="card-body">
+        <form method="post">
+          {% csrf_token %}
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label fw-bold">Ad <span class="text-danger">*</span></label>
+              <input type="text" name="first_name" class="form-control" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold">Soyad <span class="text-danger">*</span></label>
+              <input type="text" name="last_name" class="form-control" required>
+            </div>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label fw-bold">Kullanici Adi <span class="text-danger">*</span></label>
+              <input type="text" name="username" class="form-control" required placeholder="giris icin kullanilacak">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold">Sifre <span class="text-danger">*</span></label>
+              <input type="text" name="password" class="form-control" required placeholder="ilk giris sifresi">
+            </div>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-4">
+              <label class="form-label fw-bold">Rol <span class="text-danger">*</span></label>
+              <select name="role" class="form-select" id="role-select">
+                {% for val, label in roles %}
+                <option value="{{ val }}">{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4" id="classification-group">
+              <label class="form-label fw-bold">Klasman</label>
+              <select name="classification" class="form-select">
+                {% for val, label in classifications %}
+                <option value="{{ val }}">{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-bold">Telefon</label>
+              <input type="text" name="phone" class="form-control" placeholder="05xx xxx xx xx">
+            </div>
+          </div>
+
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-success">
+              <i class="bi bi-check-lg"></i> Olustur
+            </button>
+            <a href="{% url 'core:user_list' %}" class="btn btn-outline-secondary">Iptal</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('role-select').addEventListener('change', function() {
+    document.getElementById('classification-group').style.display =
+        this.value === 'hakem' ? '' : 'none';
+});
+// Basta kontrol
+if (document.getElementById('role-select').value !== 'hakem') {
+    document.getElementById('classification-group').style.display = 'none';
+}
+</script>
+{% endblock %}

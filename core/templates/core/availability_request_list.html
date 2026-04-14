@@ -49,10 +49,22 @@
                     </div>
                 </td>
                 <td><small>{{ item.request.created_at|date:"d.m.Y H:i" }}</small></td>
-                <td>
+                <td class="text-nowrap">
                     <a href="{% url 'core:availability_request_detail' item.request.pk %}" class="btn btn-sm btn-outline-primary">
-                        <i class="bi bi-eye"></i> Ozet
+                        <i class="bi bi-eye"></i>
                     </a>
+                    <form method="post" action="{% url 'core:availability_request_toggle' item.request.pk %}" class="d-inline">
+                        {% csrf_token %}
+                        {% if item.request.is_active %}
+                        <button type="submit" class="btn btn-sm btn-outline-warning" title="Pasif yap">
+                            <i class="bi bi-pause-fill"></i>
+                        </button>
+                        {% else %}
+                        <button type="submit" class="btn btn-sm btn-outline-success" title="Aktif yap">
+                            <i class="bi bi-play-fill"></i>
+                        </button>
+                        {% endif %}
+                    </form>
                 </td>
             </tr>
             {% endfor %}

@@ -27,6 +27,8 @@
     white-space: nowrap;
 }
 .assignment-table tr:hover { background: #fff3cd !important; }
+.assignment-table tr.copied-source { outline: 2px dashed #0d6efd; }
+.assignment-table tr.selected-row { background: #cfe2ff !important; }
 .assignment-table .date-cell { font-weight: bold; font-size: 11px; min-width: 100px; }
 .assignment-table .time-cell { text-align: center; font-weight: bold; }
 .assignment-table .code-cell { font-family: monospace; font-size: 11px; text-align: center; }
@@ -43,8 +45,8 @@
     appearance: auto; -webkit-appearance: auto;
 }
 .assign-select option { font-size: 12px; }
-.assign-select.available { background: #d4edda; }
-.assign-select.unavailable { background: #f8d7da; }
+.assign-select.avail-yes { background: #d4edda; }
+.assign-select.avail-no { background: #f8d7da; }
 .assign-select.assigned { background: #d1ecf1; font-weight: bold; }
 .day-group-0 { background: #ffffff; }
 .day-group-1 { background: #f0f8ff; }
@@ -57,56 +59,37 @@
 .saving { opacity: 0.5; }
 @keyframes flash-green { 0% { background: #28a745; } 100% { background: transparent; } }
 .save-ok { animation: flash-green 0.5s; }
-
-/* Gun secici */
-.date-picker-grid { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px; }
-.date-btn {
-    padding: 4px 10px; font-size: 12px; border: 1px solid #dee2e6;
-    border-radius: 4px; cursor: pointer; background: #f8f9fa; user-select: none;
-    min-width: 80px; text-align: center;
-}
-.date-btn:hover { border-color: #0d6efd; background: #e7f1ff; }
-.date-btn.selected { background: #0d6efd; color: #fff; border-color: #0d6efd; }
-.date-btn.has-matches { border-color: #fd7e14; }
-.date-btn.selected.has-matches { background: #fd7e14; border-color: #fd7e14; }
-.date-btn .match-cnt { font-size: 10px; display: block; opacity: 0.8; }
 .filter-bar { background: #f8f9fa; padding: 10px 15px; border-radius: 5px; margin-bottom: 10px; }
+.week-nav { font-size: 14px; font-weight: 600; }
+.avail-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-left: 3px; vertical-align: middle; }
+.avail-dot.yes { background: #28a745; }
+.avail-dot.no { background: #dc3545; }
+.copy-hint { font-size: 11px; color: #6c757d; }
 </style>
 {% endblock %}
 
 {% block content %}
-<!-- Atama Penceresi Durumu -->
-{% if not window_is_open %}
-<div class="alert alert-danger d-flex align-items-center py-2 mb-2" style="font-size:13px;">
-  <i class="bi bi-lock-fill me-2 fs-5"></i>
-  <div>
-    <strong>Atama Kapali</strong>
-    {% if upcoming_window %}
-      — Sonraki pencere: <strong>{{ upcoming_window.start_datetime|date:"d.m.Y H:i" }}</strong> / <em>{{ upcoming_window.title }}</em>
-    {% else %}
-      — Aktif bir atama penceresi bulunmuyor. <a href="{% url 'core:assignment_window_list' %}" class="alert-link">Pencere olustur</a>
-    {% endif %}
-    &nbsp;<span class="text-muted">(Atamalara bakabilirsiniz, ancak degisiklik kaydedilmeyecektir.)</span>
-  </div>
-</div>
-{% else %}
-<div class="alert alert-success d-flex align-items-center py-2 mb-2" style="font-size:13px;">
-  <i class="bi bi-unlock-fill me-2 fs-5"></i>
-  <div>
-    <strong>Atama Acik</strong> — <em>{{ active_window.title }}</em>
-    &nbsp;| Kapanma: <strong>{{ active_window.end_datetime|date:"d.m.Y H:i" }}</strong>
-  </div>
-</div>
-{% endif %}
-
-<!-- Filtre Bar -->
+<!-- Hafta Navigasyonu + Filtre -->
 <div class="filter-bar">
-    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-        <strong style="font-size:13px;"><i class="bi bi-calendar3"></i> Gun Sec:</strong>
-        <div class="date-picker-grid" id="date-picker">
-            <!-- JS ile dolacak -->
-        </div>
-        <select id="league-filter" class="form-select form-select-sm ms-2" style="width:190px;">
+    <div class="d-flex flex-wrap align-items-center gap-2">
+        <!-- Hafta navigasyonu -->
+        <a href="?week={{ prev_week }}{% if selected_league %}&league={{ selected_league }}{% endif %}{% if selected_tournament %}&tournament={{ selected_tournament }}{% endif %}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-chevron-left"></i>
+        </a>
+        <span class="week-nav">
+            {{ week_start|date:"d.m.Y" }} — {{ week_end|date:"d.m.Y" }}
+        </span>
+        <a href="?week={{ next_week }}{% if selected_league %}&league={{ selected_league }}{% endif %}{% if selected_tournament %}&tournament={{ selected_tournament }}{% endif %}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-chevron-right"></i>
+        </a>
+        {% if week_offset != 0 %}
+        <a href="?week=0{% if selected_league %}&league={{ selected_league }}{% endif %}{% if selected_tournament %}&tournament={{ selected_tournament }}{% endif %}" class="btn btn-outline-primary btn-sm">
+            Bugun
+        </a>
+        {% endif %}
+
+        <!-- Lig / Turnuva filtre -->
+        <select id="league-filter" class="form-select form-select-sm ms-2" style="width:190px;" onchange="applyFilter()">
             <option value="">Tum Ligler</option>
             {% regroup leagues by get_category_display as league_groups %}
             {% for group in league_groups %}
@@ -120,25 +103,27 @@
             {% endfor %}
         </select>
         {% if tournaments %}
-        <select id="tournament-filter" class="form-select form-select-sm ms-1" style="width:180px;">
-            <option value="">— Turnuva Sec —</option>
+        <select id="tournament-filter" class="form-select form-select-sm" style="width:180px;" onchange="applyFilter()">
+            <option value="">— Turnuva —</option>
             {% for t in tournaments %}
             <option value="{{ t.id }}" {% if selected_tournament == t.id|stringformat:"d" %}selected{% endif %}>
-                🏆 {{ t.name }}
+                {{ t.name }}
             </option>
             {% endfor %}
         </select>
         {% endif %}
-        <button id="apply-filter" class="btn btn-sm btn-primary">
-            <i class="bi bi-search"></i> Goster
-        </button>
+
         <a href="{% url 'core:assignment_pdf' %}" class="btn btn-sm btn-outline-secondary" target="_blank">
             <i class="bi bi-printer"></i> Yazdir
         </a>
+
         <span class="ms-auto text-muted" style="font-size:12px;">
-            {{ match_data|length }} mac listeleniyor
+            {{ match_data|length }} mac
             <span id="save-status" class="ms-2"></span>
         </span>
+    </div>
+    <div class="mt-1 copy-hint">
+        <i class="bi bi-info-circle"></i> Satir secmek icin tiklayip <kbd>Ctrl+C</kbd> ile kopyala, baska satira tikla ve <kbd>Ctrl+V</kbd> ile yapistir.
     </div>
 </div>
 
@@ -157,7 +142,7 @@
                 <th class="bg-danger bg-opacity-75" style="min-width:140px;">BAS HAKEM</th>
                 <th class="bg-danger bg-opacity-75" style="min-width:140px;">YARDIMCI HAKEM</th>
                 <th style="min-width:90px;">TUR BILGISI</th>
-                <th class="bg-primary bg-opacity-75" style="min-width:130px;">SAYI GOREVLISI</th>
+                <th class="bg-primary bg-opacity-75" style="min-width:130px;">YARDIMCI SAYI GOREVLISI</th>
                 <th class="bg-primary bg-opacity-75" style="min-width:130px;">SAYI GOREVLISI</th>
                 <th class="bg-primary bg-opacity-75" style="min-width:130px;">SURE GOREVLISI</th>
                 <th class="bg-primary bg-opacity-75" style="min-width:130px;">SUT SAATI GOREVLISI</th>
@@ -173,7 +158,7 @@
                 </td>
                 <td class="time-cell">{{ item.match.time|time:"H:i" }}</td>
                 <td class="code-cell">{{ item.match.match_code }}</td>
-                <td class="league-cell" title="{{ item.match.league.name }}">{{ item.match.league.name }}</td>
+                <td class="league-cell" title="{{ item.match.competition_name }}">{{ item.match.competition_name }}</td>
                 <td class="team-cell" title="{{ item.match.home_team_name }}">{{ item.match.home_team_name }}</td>
                 <td class="team-cell" title="{{ item.match.away_team_name }}">{{ item.match.away_team_name }}</td>
                 <td class="venue-cell" title="{{ item.match.venue.name|default:'' }}">{{ item.match.venue.name|default:"-" }}</td>
@@ -196,7 +181,7 @@
                     </select>
                 </td>
                 <td class="round-info-cell">{{ item.match.round_info|default:"***" }}</td>
-                <!-- SAYI 1 -->
+                <!-- YARDIMCI SAYI GOREVLISI (scorer_1) -->
                 <td>
                     <select class="assign-select" data-field="scorer_1" data-role="masa">
                         <option value="">---</option>
@@ -205,7 +190,7 @@
                         {% endfor %}
                     </select>
                 </td>
-                <!-- SAYI 2 -->
+                <!-- SAYI GOREVLISI (scorer_2) -->
                 <td>
                     <select class="assign-select" data-field="scorer_2" data-role="masa">
                         <option value="">---</option>
@@ -246,8 +231,7 @@
             <tr>
                 <td colspan="15" class="text-center text-muted py-4">
                     <i class="bi bi-calendar-x" style="font-size: 2rem;"></i>
-                    <br>Seçilen gunlerde oynanmamis mac bulunamadi.
-                    <br><small>Yukardaki takvimden atama yapmak istediginiz gunleri secin.</small>
+                    <br>Bu haftada oynanmamis mac bulunamadi.
                 </td>
             </tr>
             {% endfor %}
@@ -260,72 +244,20 @@
 <script>
 const CSRF_TOKEN = '{{ csrf_token }}';
 const AVAILABILITIES = {{ availabilities_json|safe }};
-const MATCH_DATES = {{ match_dates_json|safe }};  // mac olan gunler
-const SELECTED_DATES = {{ selected_dates|safe }};
 const SAVE_URL = '{% url "core:assignment_save" %}';
+const WEEK_OFFSET = {{ week_offset }};
 
-// Takvim olustur: bugun - 7 gun oncesi ile + 60 gun
-function buildDatePicker() {
-    const picker = document.getElementById('date-picker');
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const start = new Date(today);
-    start.setDate(start.getDate() - 7);
-    const end = new Date(today);
-    end.setDate(end.getDate() + 60);
-
-    const matchDateSet = new Set(MATCH_DATES);
-    const selectedSet = new Set(SELECTED_DATES);
-
-    const days = ['Paz', 'Pzt', 'Sal', 'Car', 'Per', 'Cum', 'Cmt'];
-    const months = ['Oca', 'Sub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Agu', 'Eyl', 'Eki', 'Kas', 'Ara'];
-
-    let current = new Date(start);
-    let lastMonth = -1;
-
-    while (current <= end) {
-        const iso = current.toISOString().slice(0, 10);
-        const hasMatches = matchDateSet.has(iso);
-        const isSelected = selectedSet.has(iso);
-
-        if (!hasMatches) {
-            current.setDate(current.getDate() + 1);
-            continue;
-        }
-
-        // Ay ayiraci
-        if (current.getMonth() !== lastMonth) {
-            const sep = document.createElement('div');
-            sep.style.cssText = 'width:100%;font-size:11px;font-weight:700;color:#6c757d;padding:2px 4px;';
-            sep.textContent = months[current.getMonth()] + ' ' + current.getFullYear();
-            picker.appendChild(sep);
-            lastMonth = current.getMonth();
-        }
-
-        const btn = document.createElement('div');
-        btn.className = 'date-btn' + (hasMatches ? ' has-matches' : '') + (isSelected ? ' selected' : '');
-        btn.dataset.date = iso;
-        btn.innerHTML = `<span>${days[current.getDay()]} ${current.getDate()}</span>`;
-        btn.addEventListener('click', () => btn.classList.toggle('selected'));
-        picker.appendChild(btn);
-
-        current.setDate(current.getDate() + 1);
-    }
-}
-
-// Filtre uygula - secilen gunler ile sayfayi yenile
-document.getElementById('apply-filter').addEventListener('click', () => {
-    const selected = Array.from(document.querySelectorAll('.date-btn.selected')).map(b => b.dataset.date);
+// Filtre uygula
+function applyFilter() {
     const league = document.getElementById('league-filter').value;
     const tournamentEl = document.getElementById('tournament-filter');
     const tournament = tournamentEl ? tournamentEl.value : '';
     const params = new URLSearchParams();
-    selected.forEach(d => params.append('dates[]', d));
+    params.set('week', WEEK_OFFSET);
     if (league) params.set('league', league);
     if (tournament) params.set('tournament', tournament);
     window.location.href = '{% url "core:assignment_sheet" %}?' + params.toString();
-});
+}
 
 // Musaitlik renkleri
 function applyAvailabilityColors() {
@@ -333,18 +265,32 @@ function applyAvailabilityColors() {
         const row = select.closest('tr');
         const matchDate = row.dataset.matchDate;
         const userId = select.value;
-        select.classList.remove('available', 'unavailable', 'assigned');
+        select.classList.remove('avail-yes', 'avail-no', 'assigned');
+
+        // Temizle eski dot
+        const existingDot = select.parentElement.querySelector('.avail-dot');
+        if (existingDot) existingDot.remove();
+
         if (userId) {
             const key = userId + '_' + matchDate;
             if (AVAILABILITIES[key] === true) {
-                select.classList.add('assigned');
+                select.classList.add('avail-yes');
+                addDot(select, 'yes');
             } else if (AVAILABILITIES[key] === false) {
-                select.classList.add('unavailable');
+                select.classList.add('avail-no');
+                addDot(select, 'no');
             } else {
                 select.classList.add('assigned');
             }
         }
     });
+}
+
+function addDot(select, type) {
+    const dot = document.createElement('span');
+    dot.className = 'avail-dot ' + type;
+    dot.title = type === 'yes' ? 'Musait' : 'Musait Degil';
+    select.parentElement.appendChild(dot);
 }
 
 // AJAX Kaydet
@@ -383,6 +329,64 @@ document.querySelectorAll('.assign-select').forEach(select => {
     select.addEventListener('change', () => saveAssignment(select));
 });
 
+// ---- Kopyala / Yapistir ----
+let copiedAssignments = null;
+let copiedSourceRow = null;
+
+// Satir secimi (tiklayarak)
+document.querySelectorAll('#assignment-table tbody tr').forEach(row => {
+    row.addEventListener('click', function(e) {
+        // Select/option tiklama ise gecis
+        if (e.target.closest('select')) return;
+        // Mevcut secimi kaldir
+        document.querySelectorAll('.selected-row').forEach(r => r.classList.remove('selected-row'));
+        this.classList.add('selected-row');
+    });
+});
+
+// Ctrl+C: secili satirin atamalarini kopyala
+document.addEventListener('keydown', function(e) {
+    if (e.ctrlKey && e.key === 'c') {
+        const selectedRow = document.querySelector('.selected-row');
+        if (!selectedRow) return;
+
+        // Bos mu kontrol - en az bir atama varsa kopyala
+        const selects = selectedRow.querySelectorAll('.assign-select');
+        copiedAssignments = {};
+        selects.forEach(sel => {
+            copiedAssignments[sel.dataset.field] = sel.value;
+        });
+        // Eski kaynak isaretini temizle
+        if (copiedSourceRow) copiedSourceRow.classList.remove('copied-source');
+        copiedSourceRow = selectedRow;
+        selectedRow.classList.add('copied-source');
+
+        const statusEl = document.getElementById('save-status');
+        statusEl.innerHTML = '<span class="text-info"><i class="bi bi-clipboard-check"></i> Atamalar kopyalandi</span>';
+        setTimeout(() => statusEl.innerHTML = '', 2000);
+        e.preventDefault();
+    }
+
+    // Ctrl+V: kopyalanan atamalari secili satira yapistir
+    if (e.ctrlKey && e.key === 'v') {
+        const selectedRow = document.querySelector('.selected-row');
+        if (!selectedRow || !copiedAssignments) return;
+
+        const selects = selectedRow.querySelectorAll('.assign-select');
+        selects.forEach(sel => {
+            const field = sel.dataset.field;
+            if (copiedAssignments[field] !== undefined) {
+                sel.value = copiedAssignments[field];
+                saveAssignment(sel);
+            }
+        });
+
+        const statusEl = document.getElementById('save-status');
+        statusEl.innerHTML = '<span class="text-success"><i class="bi bi-clipboard-plus"></i> Atamalar yapistiriliyor...</span>';
+        e.preventDefault();
+    }
+});
+
 // Klavye navigasyonu
 document.querySelectorAll('.assign-select').forEach((select) => {
     select.addEventListener('keydown', function(e) {
@@ -410,7 +414,6 @@ document.querySelectorAll('.assign-select').forEach((select) => {
     });
 });
 
-buildDatePicker();
 applyAvailabilityColors();
 </script>
 {% endblock %}

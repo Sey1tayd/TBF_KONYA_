@@ -19,7 +19,10 @@
 .match-time { min-width:42px; color:#6c757d; font-size:12px; }
 .match-code { min-width:68px; font-size:11px; }
 .match-teams { flex:1; font-weight:500; }
-.match-venue { min-width:140px; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11px; color:#6c757d; }
+.match-venue { min-width:140px; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11px; font-weight:600; padding:2px 6px; border-radius:3px; }
+.assignment-info { font-size:11px; color:#495057; display:flex; flex-wrap:wrap; gap:2px 10px; padding-left:50px; padding-bottom:2px; }
+.assignment-info .ref-name { font-weight:600; }
+.assignment-info .ref-label { color:#6c757d; font-size:10px; }
 .avail-badge { display:inline-block; padding:3px 8px; border-radius:4px; font-size:11px; font-weight:600; min-width:70px; text-align:center; }
 </style>
 {% endblock %}
@@ -36,7 +39,7 @@
   <div class="col-6 col-md-3">
     <div class="card {% if unreported_days > 0 %}border-warning{% else %}border-success{% endif %} h-100 text-center py-2">
       <div class="fw-bold {% if unreported_days > 0 %}text-warning{% else %}text-success{% endif %} fs-4">
-        {{ total_days|add:"-"|add:unreported_days }}/{{ total_days }}
+        {{ reported_days }}/{{ total_days }}
       </div>
       <small class="text-muted">Gun Bildirildi</small>
     </div>
@@ -55,13 +58,15 @@
   </div>
 </div>
 
-{% if active_request %}
-<div class="alert alert-info py-2 mb-3" style="font-size:13px;">
-  <i class="bi bi-megaphone-fill me-1"></i>
-  <strong>{{ active_request.title }}</strong>
-  <span class="ms-2 text-muted">{{ active_request.start_date|date:"d.m.Y" }} – {{ active_request.end_date|date:"d.m.Y" }} tarihleri icin musaitliginizi bildirin.</span>
-  <a href="{% url 'core:availability' %}" class="btn btn-sm btn-outline-primary ms-2 py-0">Bildir</a>
-</div>
+{% if active_requests %}
+  {% for req in active_requests %}
+  <div class="alert alert-info py-2 mb-2" style="font-size:13px;">
+    <i class="bi bi-megaphone-fill me-1"></i>
+    <strong>{{ req.title }}</strong>
+    <span class="ms-2 text-muted">{{ req.date_list|length }} gun icin musaitliginizi bildirin.</span>
+    <a href="{% url 'core:availability' %}" class="btn btn-sm btn-outline-primary ms-2 py-0">Bildir</a>
+  </div>
+  {% endfor %}
 {% endif %}
 
 <!-- Hafta Navigasyonu -->
@@ -115,29 +120,37 @@
     <span class="fw-normal text-muted">{{ cg.list|length }} mac</span>
   </div>
   {% for match in cg.list %}
-  <div class="match-row {% if match.id in my_match_ids %}my-match{% endif %}">
-    <span class="match-time">{{ match.time|time:"H:i" }}</span>
-    <span class="match-code"><code style="font-size:11px;">{{ match.match_code }}</code></span>
-    <span class="match-teams">
-      <strong>{{ match.home_team_name|default:"TBD" }}</strong>
-      <span class="text-muted mx-1">–</span>
-      <strong>{{ match.away_team_name|default:"TBD" }}</strong>
-    </span>
-    {% if match.round_info %}<span class="badge bg-danger" style="font-size:10px;">{{ match.round_info }}</span>{% endif %}
-    <span class="match-venue"><i class="bi bi-geo-alt" style="font-size:10px;"></i> {{ match.venue.name|default:"-" }}</span>
-    <span>
-      {% if match.id in my_match_ids %}
-        <span class="badge bg-success" style="font-size:10px;"><i class="bi bi-star-fill"></i> Gorevliyim</span>
-      {% elif match.assignment %}
-        {% if match.is_played %}
-        <span class="badge bg-secondary" style="font-size:10px;">Oynandi</span>
-        {% else %}
-        <span class="badge bg-light text-dark border" style="font-size:10px;">Atandi</span>
+  <div>
+    <div class="match-row {% if match.id in my_match_ids %}my-match{% endif %}">
+      <span class="match-time">{{ match.time|time:"H:i" }}</span>
+      <span class="match-code"><code style="font-size:11px;">{{ match.match_code }}</code></span>
+      <span class="match-teams">
+        <strong>{{ match.home_team_name|default:"TBD" }}</strong>
+        <span class="text-muted mx-1">–</span>
+        <strong>{{ match.away_team_name|default:"TBD" }}</strong>
+      </span>
+      {% if match.round_info %}<span class="badge bg-danger" style="font-size:10px;">{{ match.round_info }}</span>{% endif %}
+      <span class="match-venue" {% if match._venue_color %}style="background:{{ match._venue_color }};"{% endif %}>
+        <i class="bi bi-geo-alt" style="font-size:10px;"></i> {{ match.venue.name|default:"-" }}
+      </span>
+      <span>
+        {% if match.id in my_match_ids %}
+          <span class="badge bg-success" style="font-size:10px;"><i class="bi bi-star-fill"></i> Gorevliyim</span>
+        {% elif match.is_played %}
+          <span class="badge bg-secondary" style="font-size:10px;">Oynandi</span>
         {% endif %}
-      {% else %}
-        <span class="badge bg-warning text-dark" style="font-size:10px;">Bekliyor</span>
+      </span>
+    </div>
+    {% if match.assignment %}
+    <div class="assignment-info">
+      {% if match.assignment.head_referee %}
+      <span><span class="ref-label">1.Hakem:</span> <span class="ref-name">{{ match.assignment.head_referee.full_name }}</span></span>
       {% endif %}
-    </span>
+      {% if match.assignment.assistant_referee %}
+      <span><span class="ref-label">2.Hakem:</span> <span class="ref-name">{{ match.assignment.assistant_referee.full_name }}</span></span>
+      {% endif %}
+    </div>
+    {% endif %}
   </div>
   {% endfor %}
   {% endfor %}

@@ -104,9 +104,9 @@
                    value="{{ end_date|date:'Y-m-d' }}">
             <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-funnel"></i></button>
         </form>
-        {% if active_request %}
-        <span class="badge bg-info">Aktif Istek: {{ active_request.title }}</span>
-        {% endif %}
+        {% for req in active_requests %}
+        <span class="badge bg-info me-1">{{ req.title }}</span>
+        {% endfor %}
     </div>
 </div>
 

@@ -16,9 +16,11 @@ urlpatterns = [
     path('musaitlik/istek/', views.availability_request_list, name='availability_request_list'),
     path('musaitlik/istek/yeni/', views.availability_request_create, name='availability_request_create'),
     path('musaitlik/istek/<int:pk>/', views.availability_request_detail, name='availability_request_detail'),
+    path('musaitlik/istek/<int:pk>/toggle/', views.availability_request_toggle, name='availability_request_toggle'),
 
     # Kullanici listesi
     path('kullanicilar/', views.user_list, name='user_list'),
+    path('kullanicilar/yeni/', views.user_create, name='user_create'),
 
     # Gorevlerim
     path('gorevlerim/', views.my_assignments, name='my_assignments'),

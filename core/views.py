@@ -84,6 +84,31 @@ def _admin_dashboard(request, profile):
     elif status_filter == 'unassigned':
         qs = qs.filter(is_played=False).exclude(id__in=assigned_ids)
 
+    # Atama bilgilerini cek (hafta maclari icin)
+    match_ids = list(qs.values_list('id', flat=True))
+    assignments_map = {}
+    for a in Assignment.objects.filter(match_id__in=match_ids).select_related(
+        'head_referee__user', 'assistant_referee__user', 'observer__user'
+    ):
+        assignments_map[a.match_id] = a
+
+    # Salon renkleri - her salona unique renk
+    venue_ids = list(qs.values_list('venue_id', flat=True).distinct())
+    VENUE_COLORS = [
+        '#e3f2fd', '#fce4ec', '#e8f5e9', '#fff3e0', '#f3e5f5',
+        '#e0f7fa', '#fff8e1', '#fbe9e7', '#e8eaf6', '#f1f8e9',
+        '#ede7f6', '#e0f2f1', '#fff9c4', '#ffebee', '#e1f5fe',
+    ]
+    venue_color_map = {}
+    for i, vid in enumerate(venue_ids):
+        if vid:
+            venue_color_map[vid] = VENUE_COLORS[i % len(VENUE_COLORS)]
+
+    # Her maca atama ve salon rengini ekle
+    for m in qs:
+        m._assignment = assignments_map.get(m.id)
+        m._venue_color = venue_color_map.get(m.venue_id, '')
+
     # Gunlere gore grupla
     from collections import defaultdict
     days_dict = defaultdict(list)
@@ -134,6 +159,8 @@ def _admin_dashboard(request, profile):
         'status_filter': status_filter,
         'assigned_ids': assigned_ids,
         'total_week_matches': qs.count(),
+        'assignments_map': assignments_map,
+        'venue_color_map': venue_color_map,
     }
     return render(request, 'core/admin_dashboard.html', context)
 
@@ -160,6 +187,22 @@ def _official_dashboard(request, profile):
                      'assignment__head_referee__user',
                      'assignment__assistant_referee__user').order_by('date', 'time')
 
+    # Salon renkleri
+    VENUE_COLORS = [
+        '#e3f2fd', '#fce4ec', '#e8f5e9', '#fff3e0', '#f3e5f5',
+        '#e0f7fa', '#fff8e1', '#fbe9e7', '#e8eaf6', '#f1f8e9',
+        '#ede7f6', '#e0f2f1', '#fff9c4', '#ffebee', '#e1f5fe',
+    ]
+    venue_ids = list(all_week_matches.values_list('venue_id', flat=True).distinct())
+    venue_color_map = {}
+    for i, vid in enumerate(venue_ids):
+        if vid:
+            venue_color_map[vid] = VENUE_COLORS[i % len(VENUE_COLORS)]
+
+    # Her maca salon rengini ekle
+    for m in all_week_matches:
+        m._venue_color = venue_color_map.get(m.venue_id, '')
+
     # Gunlere gore grupla
     days_dict = defaultdict(list)
     for m in all_week_matches:
@@ -179,12 +222,20 @@ def _official_dashboard(request, profile):
         })
         current += timedelta(days=1)
 
-    # Musaitlik durumum
-    active_request = AvailabilityRequest.objects.filter(
+    # Musaitlik durumum - tum aktif istekler
+    active_requests = list(AvailabilityRequest.objects.filter(
         is_active=True, target_roles__contains=profile.role
-    ).first()
-    if active_request:
-        avail_range = (active_request.start_date, active_request.end_date)
+    ).order_by('-created_at'))
+    if active_requests:
+        all_dates = set()
+        for req in active_requests:
+            all_dates.update(req.date_list)
+        avail_days = sorted(all_dates)
+    else:
+        avail_days = [today + timedelta(days=i) for i in range(14)]
+
+    if avail_days:
+        avail_range = (avail_days[0], avail_days[-1])
     else:
         avail_range = (today, today + timedelta(days=13))
 
@@ -192,8 +243,6 @@ def _official_dashboard(request, profile):
         user=profile, date__range=avail_range
     ).order_by('date')
     reported_dates = set(my_availabilities.values_list('date', flat=True))
-    avail_days = [avail_range[0] + timedelta(days=i)
-                  for i in range((avail_range[1] - avail_range[0]).days + 1)]
     unreported = [d for d in avail_days if d not in reported_dates]
 
     # Yaklasan gorevlerim ozeti
@@ -212,8 +261,9 @@ def _official_dashboard(request, profile):
         'week_total': all_week_matches.count(),
         'my_availabilities': my_availabilities,
         'unreported_days': len(unreported),
+        'reported_days': len(avail_days) - len(unreported),
         'total_days': len(avail_days),
-        'active_request': active_request,
+        'active_requests': active_requests,
     }
     return render(request, 'core/official_dashboard.html', context)
 
@@ -309,11 +359,11 @@ def availability_view(request):
 
     today = date.today()
 
-    # Aktif istek var mi?
-    active_request = AvailabilityRequest.objects.filter(
+    # Tum aktif istekleri al (birden fazla olabilir)
+    active_requests = list(AvailabilityRequest.objects.filter(
         is_active=True,
         target_roles__contains=profile.role
-    ).first()
+    ).order_by('-created_at'))
 
     if request.method == 'POST':
         dates_str = request.POST.getlist('dates[]')
@@ -343,9 +393,12 @@ def availability_view(request):
         messages.success(request, f'{saved} gun icin musaitlik bildirildi.')
         return redirect('core:availability')
 
-    # Aktif istek varsa onun gunlerini goster, yoksa 14 gun
-    if active_request:
-        date_list = active_request.date_list
+    # Tum aktif isteklerin gunlerini birlestir (tekrarsiz, sirali)
+    if active_requests:
+        all_dates = set()
+        for req in active_requests:
+            all_dates.update(req.date_list)
+        date_list = sorted(all_dates)
     else:
         date_list = [today + timedelta(days=i) for i in range(14)]
 
@@ -353,17 +406,20 @@ def availability_view(request):
     for d in date_list:
         existing = Availability.objects.filter(user=profile, date=d).first()
         match_count = Match.objects.filter(date=d, is_played=False).count()
+        # Bu gun hangi isteklere ait?
+        related_requests = [r for r in active_requests if d in r.date_list]
         days.append({
             'date': d,
             'day_name': _turkish_day(d),
             'existing': existing,
             'match_count': match_count,
+            'requests': related_requests,
         })
 
     context = {
         'profile': profile,
         'days': days,
-        'active_request': active_request,
+        'active_requests': active_requests,
     }
     return render(request, 'core/availability.html', context)
 
@@ -382,8 +438,8 @@ def availability_summary(request):
 
     today = date.today()
 
-    # Aktif istek varsa onun tarihlerini kullan
-    active_request = AvailabilityRequest.objects.filter(is_active=True).first()
+    # Tum aktif istekleri al
+    active_requests = list(AvailabilityRequest.objects.filter(is_active=True).order_by('-created_at'))
 
     start_str = request.GET.get('start_date')
     end_str = request.GET.get('end_date')
@@ -405,8 +461,11 @@ def availability_summary(request):
         end_date = None
 
     # Gosterilecek tarih listesini belirle
-    if active_request and not start_date:
-        dates_list = active_request.date_list
+    if active_requests and not start_date:
+        all_dates = set()
+        for req in active_requests:
+            all_dates.update(req.date_list)
+        dates_list = sorted(all_dates)
     elif start_date and end_date:
         dates_list = []
         d = start_date
@@ -485,7 +544,7 @@ def availability_summary(request):
         'col_count': len(date_range) + 1,
         'start_date': start_date,
         'end_date': end_date,
-        'active_request': active_request,
+        'active_requests': active_requests,
     }
     return render(request, 'core/availability_summary.html', context)
 
@@ -548,9 +607,6 @@ def availability_request_create(request):
             except (ValueError, TypeError):
                 pass
 
-        # Onceki aktif istekleri kapat
-        AvailabilityRequest.objects.filter(is_active=True).update(is_active=False)
-
         AvailabilityRequest.objects.create(
             title=title,
             description=description,
@@ -598,6 +654,24 @@ def availability_request_detail(request, pk):
 
 
 @login_required
+def availability_request_toggle(request, pk):
+    """Musaitlik istegini aktif/pasif yap."""
+    profile = _get_profile(request)
+    if not _is_admin(profile):
+        return redirect('core:dashboard')
+    if request.method == 'POST':
+        try:
+            avail_request = AvailabilityRequest.objects.get(pk=pk)
+            avail_request.is_active = not avail_request.is_active
+            avail_request.save()
+            status = 'aktif' if avail_request.is_active else 'kapali'
+            messages.success(request, f'"{avail_request.title}" istegi {status} yapildi.')
+        except AvailabilityRequest.DoesNotExist:
+            pass
+    return redirect('core:availability_request_list')
+
+
+@login_required
 def user_list(request):
     """Tum kullanicilarin listesi."""
     profile = _get_profile(request)
@@ -628,8 +702,56 @@ def user_list(request):
 
 
 @login_required
+def user_create(request):
+    """Admin yeni kullanici olusturur."""
+    profile = _get_profile(request)
+    if not _is_admin(profile):
+        return redirect('core:dashboard')
+
+    if request.method == 'POST':
+        first_name = request.POST.get('first_name', '').strip()
+        last_name = request.POST.get('last_name', '').strip()
+        username = request.POST.get('username', '').strip()
+        password = request.POST.get('password', '').strip()
+        role = request.POST.get('role', 'hakem')
+        classification = request.POST.get('classification', '')
+        phone = request.POST.get('phone', '').strip()
+
+        if not first_name or not last_name or not username or not password:
+            messages.error(request, 'Ad, soyad, kullanici adi ve sifre zorunludur.')
+            return redirect('core:user_create')
+
+        from django.contrib.auth.models import User as AuthUser
+        if AuthUser.objects.filter(username=username).exists():
+            messages.error(request, f'"{username}" kullanici adi zaten mevcut.')
+            return redirect('core:user_create')
+
+        user = AuthUser.objects.create_user(
+            username=username,
+            password=password,
+            first_name=first_name,
+            last_name=last_name,
+        )
+        UserProfile.objects.create(
+            user=user,
+            role=role,
+            classification=classification if role == 'hakem' else '',
+            phone=phone,
+            is_active_official=True,
+        )
+        messages.success(request, f'{first_name} {last_name} basariyla olusturuldu.')
+        return redirect('core:user_list')
+
+    context = {
+        'roles': UserProfile.ROLE_CHOICES,
+        'classifications': UserProfile.CLASSIFICATION_CHOICES,
+    }
+    return render(request, 'core/user_create.html', context)
+
+
+@login_required
 def assignment_sheet(request):
-    """Excel benzeri atama sayfasi - secilen gunlere gore."""
+    """Excel benzeri atama sayfasi - haftalik gorunum."""
     profile = _get_profile(request)
     if not _is_admin(profile):
         return redirect('core:dashboard')
@@ -638,36 +760,18 @@ def assignment_sheet(request):
     league_id = request.GET.get('league', '')
     tournament_id = request.GET.get('tournament', '')
 
-    # Secilen gunler: ?dates[]=2026-04-16&dates[]=2026-04-17 ...
-    selected_dates_str = request.GET.getlist('dates[]')
-    if not selected_dates_str:
-        # Default: bu haftanin oynanmamis mac olan gunleri
-        week_start = today - timedelta(days=today.weekday())
-        week_end = week_start + timedelta(days=6)
-        selected_dates = list(
-            Match.objects.filter(date__range=(week_start, week_end), is_played=False)
-            .values_list('date', flat=True).distinct().order_by('date')
-        )
-    else:
-        selected_dates = []
-        for ds in selected_dates_str:
-            try:
-                selected_dates.append(date.fromisoformat(ds))
-            except ValueError:
-                pass
-        selected_dates = sorted(set(selected_dates))
+    # Haftalik navigasyon (Pazartesi-Pazar)
+    week_offset = int(request.GET.get('week', 0))
+    week_start = today - timedelta(days=today.weekday()) + timedelta(weeks=week_offset)
+    week_end = week_start + timedelta(days=6)
 
-    if not selected_dates:
-        matches = Match.objects.none()
-    else:
-        matches = Match.objects.filter(
-            date__in=selected_dates,
-            is_played=False,
-        ).select_related('league', 'tournament', 'venue').order_by('date', 'time')
+    matches = Match.objects.filter(
+        date__range=(week_start, week_end),
+        is_played=False,
+    ).select_related('league', 'tournament', 'venue').order_by('date', 'time')
 
     if league_id:
         matches = matches.filter(league_id=league_id)
-
     if tournament_id:
         matches = matches.filter(tournament_id=tournament_id)
 
@@ -702,46 +806,12 @@ def assignment_sheet(request):
     leagues = League.objects.filter(is_active=True).order_by('name')
     tournaments = Tournament.objects.filter(is_active=True).order_by('-start_date')
 
-    # Musaitlik verisi (JSON) - secilen gunler icin
+    # Musaitlik verisi (JSON) - hafta icin
     availabilities = {}
-    if selected_dates:
-        for avail in Availability.objects.filter(date__in=selected_dates):
-            key = f"{avail.user_id}_{avail.date.isoformat()}"
-            availabilities[key] = avail.is_available
-
-    # Takvimde gosterilecek mevcut mac gunleri (son 30 + sonraki 60 gun)
-    calendar_start = today - timedelta(days=30)
-    calendar_end = today + timedelta(days=60)
-    match_dates = list(
-        Match.objects.filter(date__range=(calendar_start, calendar_end), is_played=False)
-        .values_list('date', flat=True).distinct().order_by('date')
-    )
-
-    # Atama penceresi - global veya turnuvaya ozgu
-    from django.utils import timezone as tz
-    now_tz = tz.now()
-    if tournament_id:
-        active_window = AssignmentWindow.objects.filter(
-            is_active=True,
-            start_datetime__lte=now_tz,
-            end_datetime__gte=now_tz,
-        ).filter(
-            Q(tournament_id=tournament_id) | Q(tournament__isnull=True)
-        ).first()
-    else:
-        active_window = AssignmentWindow.get_active()
-    window_is_open = active_window is not None
-    upcoming_window = AssignmentWindow.objects.filter(
-        is_active=True, start_datetime__gt=now_tz,
-    ).filter(
-        Q(tournament_id=tournament_id) | Q(tournament__isnull=True)
-        if tournament_id else Q(tournament__isnull=True)
-    ).order_by('start_datetime').first()
-
-    # Secili turnuva objesi
-    selected_tournament_obj = None
-    if tournament_id:
-        selected_tournament_obj = Tournament.objects.filter(pk=tournament_id).first()
+    week_dates = [week_start + timedelta(days=i) for i in range(7)]
+    for avail in Availability.objects.filter(date__in=week_dates):
+        key = f"{avail.user_id}_{avail.date.isoformat()}"
+        availabilities[key] = avail.is_available
 
     context = {
         'match_data': match_data,
@@ -750,15 +820,14 @@ def assignment_sheet(request):
         'observers': observers,
         'leagues': leagues,
         'tournaments': tournaments,
-        'selected_dates': [d.isoformat() for d in selected_dates],
         'selected_league': league_id,
         'selected_tournament': tournament_id,
-        'selected_tournament_obj': selected_tournament_obj,
         'availabilities_json': json.dumps(availabilities),
-        'match_dates_json': json.dumps([d.isoformat() for d in match_dates]),
-        'window_is_open': window_is_open,
-        'active_window': active_window,
-        'upcoming_window': upcoming_window,
+        'week_start': week_start,
+        'week_end': week_end,
+        'week_offset': week_offset,
+        'prev_week': week_offset - 1,
+        'next_week': week_offset + 1,
     }
     return render(request, 'core/assignment_sheet.html', context)
 
