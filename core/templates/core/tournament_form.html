@@ -1,22 +1,24 @@
 {% extends "base.html" %}
-{% block title %}{% if editing %}Turnuva Duzenle{% else %}Yeni Turnuva{% endif %} - TBF Konya{% endblock %}
+{% block title %}{% if editing %}{{ tournament.name }}{% else %}Yeni Turnuva{% endif %} - TBF Konya{% endblock %}
 
 {% block extra_css %}
 <style>
-.match-row-item { font-size:12px; border-bottom:1px solid #f0f0f0; padding:6px 0; }
-.match-row-item:last-child { border-bottom:none; }
+.match-item { font-size:12px; border-bottom:1px solid #f0f0f0; padding:6px 12px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.match-item:last-child { border-bottom:none; }
+.match-item:hover { background:#f8f9fa; }
+.match-item.editing-row { background:#fff8e1; }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="row g-3">
-  <!-- SOL: Turnuva Formu -->
-  <div class="col-md-5">
+  <!-- SOL: Turnuva Bilgileri -->
+  <div class="col-md-4">
     <div class="card">
       <div class="card-header bg-dark text-white py-2">
         <h5 class="mb-0" style="font-size:15px;">
           <i class="bi bi-trophy"></i>
-          {% if editing %}{{ tournament.name }} — Duzenle{% else %}Yeni Turnuva{% endif %}
+          {% if editing %}Turnuva Bilgileri{% else %}Yeni Turnuva{% endif %}
         </h5>
       </div>
       <div class="card-body">
@@ -29,157 +31,174 @@
               placeholder="ör: Konya Kupasi 2026">
           </div>
           <div class="mb-3">
-            <label class="form-label fw-bold">Kisa Ad</label>
+            <label class="form-label fw-bold">Kisa Ad <small class="text-muted fw-normal">(opsiyonel)</small></label>
             <input type="text" name="short_name" class="form-control"
               value="{% if editing %}{{ tournament.short_name }}{% endif %}"
               placeholder="ör: KK2026">
-            <div class="form-text">Tablolarda kisaltma olarak kullanilir.</div>
-          </div>
-          <div class="row g-2 mb-3">
-            <div class="col">
-              <label class="form-label fw-bold">Baslangic <span class="text-danger">*</span></label>
-              <input type="date" name="start_date" class="form-control"
-                value="{% if editing %}{{ tournament.start_date|date:'Y-m-d' }}{% endif %}" required>
-            </div>
-            <div class="col">
-              <label class="form-label fw-bold">Bitis <span class="text-danger">*</span></label>
-              <input type="date" name="end_date" class="form-control"
-                value="{% if editing %}{{ tournament.end_date|date:'Y-m-d' }}{% endif %}" required>
-            </div>
           </div>
           <div class="mb-3">
-            <label class="form-label fw-bold">Salon</label>
-            <select name="venue" class="form-select">
-              <option value="">— Belirsiz —</option>
-              {% for v in venues %}
-              <option value="{{ v.pk }}"
-                {% if editing and tournament.venue_id == v.pk %}selected{% endif %}>
-                {{ v.name }}
-              </option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="mb-3">
-            <label class="form-label fw-bold">Aciklama</label>
-            <textarea name="description" class="form-control" rows="2"
+            <label class="form-label fw-bold">Aciklama <small class="text-muted fw-normal">(opsiyonel)</small></label>
+            <textarea name="description" class="form-control" rows="3"
               placeholder="Turnuva hakkinda kisa aciklama...">{% if editing %}{{ tournament.description }}{% endif %}</textarea>
           </div>
+          {% if editing %}
           <div class="mb-3 form-check">
             <input type="checkbox" name="is_active" class="form-check-input" id="is_active"
-              {% if not editing or tournament.is_active %}checked{% endif %}>
+              {% if tournament.is_active %}checked{% endif %}>
             <label class="form-check-label" for="is_active">Aktif</label>
           </div>
+          {% endif %}
           <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-primary">
-              <i class="bi bi-check-lg"></i> {% if editing %}Guncelle{% else %}Olustur{% endif %}
+            <button type="submit" class="btn btn-primary btn-sm">
+              <i class="bi bi-check-lg"></i> {% if editing %}Guncelle{% else %}Olustur ve Mac Ekle{% endif %}
             </button>
-            <a href="{% url 'core:tournament_list' %}" class="btn btn-outline-secondary">
-              <i class="bi bi-x"></i> Iptal
+            <a href="{% url 'core:tournament_list' %}" class="btn btn-outline-secondary btn-sm">
+              <i class="bi bi-arrow-left"></i> Geri
             </a>
           </div>
         </form>
+
+        {% if editing %}
+        <hr class="my-3">
+        <div style="font-size:12px; color:#6c757d;">
+          <div><strong>Toplam Mac:</strong> {{ matches|length }}</div>
+          {% if tournament.start_date %}<div><strong>Baslangic:</strong> {{ tournament.start_date|date:"d.m.Y" }}</div>{% endif %}
+          {% if tournament.end_date %}<div><strong>Bitis:</strong> {{ tournament.end_date|date:"d.m.Y" }}</div>{% endif %}
+        </div>
+        <div class="mt-2">
+          <a href="{% url 'core:assignment_sheet' %}?tournament={{ tournament.pk }}" class="btn btn-sm btn-success w-100">
+            <i class="bi bi-table"></i> Atama Tablosunu Ac
+          </a>
+        </div>
+        {% endif %}
       </div>
     </div>
   </div>
 
-  <!-- SAG: Mac Yonetimi (sadece duzenleme modunda) -->
+  <!-- SAG: Mac Yonetimi (sadece duzenleme) -->
   {% if editing %}
-  <div class="col-md-7">
+  <div class="col-md-8">
     <div class="card">
       <div class="card-header bg-dark text-white py-2 d-flex justify-content-between align-items-center">
-        <h5 class="mb-0" style="font-size:15px;"><i class="bi bi-collection"></i> Maclar ({{ tournament.match_count }})</h5>
-        <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#addMatchModal">
+        <h5 class="mb-0" style="font-size:15px;"><i class="bi bi-collection"></i> Maclar</h5>
+        <button class="btn btn-sm btn-success" id="btn-show-add-form">
           <i class="bi bi-plus-lg"></i> Mac Ekle
         </button>
       </div>
-      <div class="card-body p-0">
-        <div id="match-list" style="max-height:500px; overflow-y:auto;">
-          {% with matches=tournament.matches.all %}
-          {% if matches %}
-            {% for m in matches|dictsort:"date" %}
-            <div class="match-row-item px-3 d-flex align-items-center gap-2" id="match-item-{{ m.pk }}">
-              <span class="text-muted" style="min-width:80px; font-size:11px;">{{ m.date|date:"d.m.Y" }}</span>
-              <span class="text-muted" style="min-width:42px; font-size:11px;">{{ m.time|time:"H:i" }}</span>
-              {% if m.round_info %}<span class="badge bg-danger" style="font-size:10px;">{{ m.round_info }}</span>{% endif %}
-              {% if m.match_code %}<code style="font-size:10px;">{{ m.match_code }}</code>{% endif %}
-              <span class="flex-grow-1 fw-bold" style="font-size:12px;">
-                {{ m.home_team_name }} <span class="text-muted">–</span> {{ m.away_team_name }}
-              </span>
-              {% if m.venue %}<span class="text-muted" style="font-size:11px;"><i class="bi bi-geo-alt"></i> {{ m.venue.name }}</span>{% endif %}
-              <button class="btn btn-sm btn-outline-danger py-0 px-1" style="font-size:11px;"
-                onclick="deleteMatch({{ m.pk }}, this)">
-                <i class="bi bi-trash"></i>
-              </button>
-            </div>
-            {% endfor %}
-          {% else %}
-            <div id="no-matches-msg" class="text-center text-muted py-4" style="font-size:13px;">
-              <i class="bi bi-calendar-x" style="font-size:2rem;"></i><br>
-              Henuz mac eklenmemis.
-            </div>
-          {% endif %}
-          {% endwith %}
+
+      <!-- Mac Ekleme Formu (gizli, toggle ile acilir) -->
+      <div id="add-match-form" class="d-none border-bottom p-3" style="background:#f8fff8;">
+        <div id="add-error" class="alert alert-danger py-1 d-none" style="font-size:12px;"></div>
+        <div class="row g-2">
+          <div class="col-md-5">
+            <input type="text" id="a_home" class="form-control form-control-sm" placeholder="Ev sahibi takim *">
+          </div>
+          <div class="col-md-5">
+            <input type="text" id="a_away" class="form-control form-control-sm" placeholder="Deplasman takim *">
+          </div>
+          <div class="col-md-2">
+            <input type="text" id="a_code" class="form-control form-control-sm" placeholder="Mac kodu">
+          </div>
+          <div class="col-md-3">
+            <input type="date" id="a_date" class="form-control form-control-sm">
+          </div>
+          <div class="col-md-2">
+            <input type="time" id="a_time" class="form-control form-control-sm" value="12:00">
+          </div>
+          <div class="col-md-3">
+            <input type="text" id="a_round" class="form-control form-control-sm" placeholder="Tur (ör: Final)">
+          </div>
+          <div class="col-md-4">
+            <select id="a_venue" class="form-select form-select-sm">
+              <option value="">— Salon —</option>
+              {% for v in venues %}<option value="{{ v.pk }}">{{ v.name }}</option>{% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="mt-2 d-flex gap-2">
+          <button class="btn btn-success btn-sm" id="btn-add-match"><i class="bi bi-plus-lg"></i> Ekle</button>
+          <button class="btn btn-outline-secondary btn-sm" id="btn-cancel-add">Iptal</button>
         </div>
       </div>
-      <div class="card-footer py-2">
-        <a href="{% url 'core:assignment_sheet' %}?tournament={{ tournament.pk }}" class="btn btn-sm btn-success">
-          <i class="bi bi-table"></i> Bu Turnuvanin Atama Tablosunu Ac
-        </a>
+
+      <!-- Mac Listesi -->
+      <div id="match-list" style="max-height:520px; overflow-y:auto;">
+        {% if matches %}
+          {% for m in matches %}
+          <div class="match-item" id="match-item-{{ m.pk }}">
+            <span class="text-muted" style="min-width:78px;">{{ m.date|date:"d.m.Y" }}</span>
+            <span class="text-muted" style="min-width:40px;">{{ m.time|time:"H:i" }}</span>
+            {% if m.round_info %}<span class="badge bg-danger" style="font-size:10px;">{{ m.round_info }}</span>{% endif %}
+            {% if m.match_code %}<code style="font-size:10px; min-width:40px;">{{ m.match_code }}</code>{% endif %}
+            <span class="flex-grow-1 fw-bold">{{ m.home_team_name }} <span class="text-muted">–</span> {{ m.away_team_name }}</span>
+            {% if m.venue %}<span class="text-muted" style="font-size:11px;"><i class="bi bi-geo-alt"></i> {{ m.venue.name }}</span>{% endif %}
+            <button class="btn btn-xs btn-outline-primary py-0 px-1" style="font-size:11px;"
+              onclick="startEdit({{ m.pk }}, '{{ m.home_team_name|escapejs }}', '{{ m.away_team_name|escapejs }}', '{{ m.date|date:'Y-m-d' }}', '{{ m.time|time:'H:i' }}', '{{ m.match_code|escapejs }}', '{{ m.round_info|escapejs }}', '{{ m.venue_id|default:'' }}')">
+              <i class="bi bi-pencil"></i>
+            </button>
+            <button class="btn btn-xs btn-outline-danger py-0 px-1" style="font-size:11px;"
+              onclick="deleteMatch({{ m.pk }})">
+              <i class="bi bi-trash"></i>
+            </button>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div id="no-matches-msg" class="text-center text-muted py-4" style="font-size:13px;">
+            <i class="bi bi-calendar-x" style="font-size:2rem;"></i><br>Henuz mac eklenmemis.
+          </div>
+        {% endif %}
       </div>
     </div>
   </div>
 
-  <!-- Mac Ekle Modal -->
-  <div class="modal fade" id="addMatchModal" tabindex="-1">
+  <!-- Mac Duzenleme Modal -->
+  <div class="modal fade" id="editModal" tabindex="-1">
     <div class="modal-dialog">
       <div class="modal-content">
-        <div class="modal-header bg-dark text-white py-2">
-          <h5 class="modal-title" style="font-size:14px;"><i class="bi bi-plus-circle"></i> Mac Ekle</h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        <div class="modal-header bg-warning py-2">
+          <h5 class="modal-title" style="font-size:14px;"><i class="bi bi-pencil"></i> Mac Duzenle</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
-          <div id="match-add-error" class="alert alert-danger py-1 d-none" style="font-size:12px;"></div>
+          <input type="hidden" id="e_match_id">
+          <div id="edit-error" class="alert alert-danger py-1 d-none" style="font-size:12px;"></div>
           <div class="row g-2">
-            <div class="col-12">
-              <label class="form-label fw-bold" style="font-size:12px;">Ev Sahibi <span class="text-danger">*</span></label>
-              <input type="text" id="m_home" class="form-control form-control-sm" placeholder="Ev sahibi takim">
-            </div>
-            <div class="col-12">
-              <label class="form-label fw-bold" style="font-size:12px;">Deplasman <span class="text-danger">*</span></label>
-              <input type="text" id="m_away" class="form-control form-control-sm" placeholder="Deplasman takim">
+            <div class="col-6">
+              <label style="font-size:12px;" class="fw-bold">Ev Sahibi *</label>
+              <input type="text" id="e_home" class="form-control form-control-sm">
             </div>
             <div class="col-6">
-              <label class="form-label fw-bold" style="font-size:12px;">Tarih <span class="text-danger">*</span></label>
-              <input type="date" id="m_date" class="form-control form-control-sm">
+              <label style="font-size:12px;" class="fw-bold">Deplasman *</label>
+              <input type="text" id="e_away" class="form-control form-control-sm">
             </div>
-            <div class="col-6">
-              <label class="form-label fw-bold" style="font-size:12px;">Saat</label>
-              <input type="time" id="m_time" class="form-control form-control-sm" value="12:00">
+            <div class="col-4">
+              <label style="font-size:12px;" class="fw-bold">Tarih *</label>
+              <input type="date" id="e_date" class="form-control form-control-sm">
             </div>
-            <div class="col-6">
-              <label class="form-label fw-bold" style="font-size:12px;">Mac Kodu</label>
-              <input type="text" id="m_code" class="form-control form-control-sm" placeholder="ör: T001">
+            <div class="col-3">
+              <label style="font-size:12px;" class="fw-bold">Saat</label>
+              <input type="time" id="e_time" class="form-control form-control-sm">
             </div>
-            <div class="col-6">
-              <label class="form-label fw-bold" style="font-size:12px;">Tur Bilgisi</label>
-              <input type="text" id="m_round" class="form-control form-control-sm" placeholder="ör: Final, Grup A">
+            <div class="col-5">
+              <label style="font-size:12px;" class="fw-bold">Mac Kodu</label>
+              <input type="text" id="e_code" class="form-control form-control-sm">
             </div>
-            <div class="col-12">
-              <label class="form-label fw-bold" style="font-size:12px;">Salon</label>
-              <select id="m_venue" class="form-select form-select-sm">
-                <option value="">— Belirsiz —</option>
-                {% for v in venues %}
-                <option value="{{ v.pk }}">{{ v.name }}</option>
-                {% endfor %}
+            <div class="col-5">
+              <label style="font-size:12px;" class="fw-bold">Tur Bilgisi</label>
+              <input type="text" id="e_round" class="form-control form-control-sm">
+            </div>
+            <div class="col-7">
+              <label style="font-size:12px;" class="fw-bold">Salon</label>
+              <select id="e_venue" class="form-select form-select-sm">
+                <option value="">— Salon —</option>
+                {% for v in venues %}<option value="{{ v.pk }}">{{ v.name }}</option>{% endfor %}
               </select>
             </div>
           </div>
         </div>
         <div class="modal-footer py-2">
           <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Iptal</button>
-          <button type="button" class="btn btn-success btn-sm" id="btn-add-match">
-            <i class="bi bi-plus-lg"></i> Ekle
-          </button>
+          <button type="button" class="btn btn-warning btn-sm" id="btn-save-edit"><i class="bi bi-check-lg"></i> Kaydet</button>
         </div>
       </div>
     </div>
@@ -193,17 +212,25 @@
 <script>
 const CSRF = '{{ csrf_token }}';
 const ADD_URL = '{% url "core:tournament_match_add" tournament.pk %}';
-const DELETE_BASE = '/turnuva/mac/';
 
+// Ekle formu toggle
+document.getElementById('btn-show-add-form').addEventListener('click', () => {
+  document.getElementById('add-match-form').classList.toggle('d-none');
+});
+document.getElementById('btn-cancel-add').addEventListener('click', () => {
+  document.getElementById('add-match-form').classList.add('d-none');
+});
+
+// Mac Ekle
 document.getElementById('btn-add-match').addEventListener('click', function () {
-  const home = document.getElementById('m_home').value.trim();
-  const away = document.getElementById('m_away').value.trim();
-  const date = document.getElementById('m_date').value;
-  const time = document.getElementById('m_time').value || '12:00';
-  const code = document.getElementById('m_code').value.trim();
-  const round = document.getElementById('m_round').value.trim();
-  const venue = document.getElementById('m_venue').value || null;
-  const errEl = document.getElementById('match-add-error');
+  const home = document.getElementById('a_home').value.trim();
+  const away = document.getElementById('a_away').value.trim();
+  const date = document.getElementById('a_date').value;
+  const time = document.getElementById('a_time').value || '12:00';
+  const code = document.getElementById('a_code').value.trim();
+  const round = document.getElementById('a_round').value.trim();
+  const venue = document.getElementById('a_venue').value || null;
+  const errEl = document.getElementById('add-error');
 
   if (!home || !away || !date) {
     errEl.textContent = 'Ev sahibi, deplasman ve tarih zorunludur.';
@@ -219,43 +246,72 @@ document.getElementById('btn-add-match').addEventListener('click', function () {
   })
   .then(r => r.json())
   .then(data => {
-    if (!data.success) {
-      errEl.textContent = data.error || 'Hata';
-      errEl.classList.remove('d-none');
-      return;
-    }
-    // Listeye ekle
-    document.getElementById('no-matches-msg') && document.getElementById('no-matches-msg').remove();
+    if (!data.success) { errEl.textContent = data.error || 'Hata'; errEl.classList.remove('d-none'); return; }
+    const noMsg = document.getElementById('no-matches-msg');
+    if (noMsg) noMsg.remove();
     const list = document.getElementById('match-list');
     const div = document.createElement('div');
-    div.className = 'match-row-item px-3 d-flex align-items-center gap-2';
+    div.className = 'match-item';
     div.id = 'match-item-' + data.match_id;
-    div.innerHTML = `
-      <span class="text-muted" style="min-width:80px;font-size:11px;">${data.date}</span>
-      <span class="text-muted" style="min-width:42px;font-size:11px;">${data.time}</span>
-      ${data.round_info ? `<span class="badge bg-danger" style="font-size:10px;">${data.round_info}</span>` : ''}
-      ${data.match_code ? `<code style="font-size:10px;">${data.match_code}</code>` : ''}
-      <span class="flex-grow-1 fw-bold" style="font-size:12px;">${data.home} <span class="text-muted">–</span> ${data.away}</span>
-      ${data.venue ? `<span class="text-muted" style="font-size:11px;"><i class="bi bi-geo-alt"></i> ${data.venue}</span>` : ''}
-      <button class="btn btn-sm btn-outline-danger py-0 px-1" style="font-size:11px;" onclick="deleteMatch(${data.match_id}, this)">
-        <i class="bi bi-trash"></i>
-      </button>
-    `;
+    div.innerHTML = buildMatchHTML(data);
     list.appendChild(div);
-    // Formu temizle
-    ['m_home','m_away','m_date','m_code','m_round'].forEach(id => document.getElementById(id).value = '');
-    document.getElementById('m_time').value = '12:00';
-    document.getElementById('m_venue').value = '';
-    bootstrap.Modal.getInstance(document.getElementById('addMatchModal')).hide();
+    ['a_home','a_away','a_date','a_code','a_round'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('a_time').value = '12:00';
+    document.getElementById('a_venue').value = '';
+    document.getElementById('add-match-form').classList.add('d-none');
   })
-  .catch(() => {
-    errEl.textContent = 'Baglanti hatasi.';
-    errEl.classList.remove('d-none');
-  });
+  .catch(() => { errEl.textContent = 'Baglanti hatasi.'; errEl.classList.remove('d-none'); });
 });
 
-function deleteMatch(matchId, btn) {
-  if (!confirm('Bu maci silmek istediginizden emin misiniz?')) return;
+// Mac Duzenle - modal ac
+function startEdit(id, home, away, date, time, code, round, venueId) {
+  document.getElementById('e_match_id').value = id;
+  document.getElementById('e_home').value = home;
+  document.getElementById('e_away').value = away;
+  document.getElementById('e_date').value = date;
+  document.getElementById('e_time').value = time;
+  document.getElementById('e_code').value = code;
+  document.getElementById('e_round').value = round;
+  document.getElementById('e_venue').value = venueId || '';
+  document.getElementById('edit-error').classList.add('d-none');
+  new bootstrap.Modal(document.getElementById('editModal')).show();
+}
+
+document.getElementById('btn-save-edit').addEventListener('click', function () {
+  const matchId = document.getElementById('e_match_id').value;
+  const home = document.getElementById('e_home').value.trim();
+  const away = document.getElementById('e_away').value.trim();
+  const date = document.getElementById('e_date').value;
+  const time = document.getElementById('e_time').value;
+  const code = document.getElementById('e_code').value.trim();
+  const round = document.getElementById('e_round').value.trim();
+  const venue = document.getElementById('e_venue').value || null;
+  const errEl = document.getElementById('edit-error');
+
+  if (!home || !away || !date) {
+    errEl.textContent = 'Ev sahibi, deplasman ve tarih zorunludur.';
+    errEl.classList.remove('d-none');
+    return;
+  }
+
+  fetch(`/turnuva/mac/${matchId}/duzenle/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+    body: JSON.stringify({ home_team_name: home, away_team_name: away, date, time, match_code: code, round_info: round, venue_id: venue ? parseInt(venue) : null })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (!data.success) { errEl.textContent = data.error || 'Hata'; errEl.classList.remove('d-none'); return; }
+    const el = document.getElementById('match-item-' + matchId);
+    if (el) el.innerHTML = buildMatchHTML(data);
+    bootstrap.Modal.getInstance(document.getElementById('editModal')).hide();
+  })
+  .catch(() => { errEl.textContent = 'Baglanti hatasi.'; errEl.classList.remove('d-none'); });
+});
+
+// Mac Sil
+function deleteMatch(matchId) {
+  if (!confirm('Bu maci silmek istiyor musunuz?')) return;
   fetch(`/turnuva/mac/${matchId}/sil/`, {
     method: 'POST',
     headers: { 'X-CSRFToken': CSRF }
@@ -270,6 +326,30 @@ function deleteMatch(matchId, btn) {
     }
   });
 }
+
+function buildMatchHTML(d) {
+  const roundBadge = d.round_info ? `<span class="badge bg-danger" style="font-size:10px;">${d.round_info}</span>` : '';
+  const codeEl = d.match_code ? `<code style="font-size:10px; min-width:40px;">${d.match_code}</code>` : '';
+  const venueEl = d.venue ? `<span class="text-muted" style="font-size:11px;"><i class="bi bi-geo-alt"></i> ${d.venue}</span>` : '';
+  const vid = d.venue_id || '';
+  const di = d.date_iso || d.date;
+  return `
+    <span class="text-muted" style="min-width:78px;">${d.date}</span>
+    <span class="text-muted" style="min-width:40px;">${d.time}</span>
+    ${roundBadge}
+    ${codeEl}
+    <span class="flex-grow-1 fw-bold">${d.home} <span class="text-muted">–</span> ${d.away}</span>
+    ${venueEl}
+    <button class="btn btn-xs btn-outline-primary py-0 px-1" style="font-size:11px;"
+      onclick="startEdit(${d.match_id},'${esc(d.home)}','${esc(d.away)}','${di}','${d.time}','${esc(d.match_code||'')}','${esc(d.round_info||'')}','${vid}')">
+      <i class="bi bi-pencil"></i>
+    </button>
+    <button class="btn btn-xs btn-outline-danger py-0 px-1" style="font-size:11px;"
+      onclick="deleteMatch(${d.match_id})"><i class="bi bi-trash"></i></button>
+  `;
+}
+
+function esc(s) { return (s || '').replace(/'/g, "\\'"); }
 </script>
 {% endif %}
 {% endblock %}

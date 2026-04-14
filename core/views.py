@@ -691,7 +691,7 @@ def assignment_sheet(request):
             start_datetime__lte=now_tz,
             end_datetime__gte=now_tz,
         ).filter(
-            models.Q(tournament_id=tournament_id) | models.Q(tournament__isnull=True)
+            Q(tournament_id=tournament_id) | Q(tournament__isnull=True)
         ).first()
     else:
         active_window = AssignmentWindow.get_active()
@@ -699,8 +699,8 @@ def assignment_sheet(request):
     upcoming_window = AssignmentWindow.objects.filter(
         is_active=True, start_datetime__gt=now_tz,
     ).filter(
-        models.Q(tournament_id=tournament_id) | models.Q(tournament__isnull=True)
-        if tournament_id else models.Q(tournament__isnull=True)
+        Q(tournament_id=tournament_id) | Q(tournament__isnull=True)
+        if tournament_id else Q(tournament__isnull=True)
     ).order_by('start_datetime').first()
 
     # Secili turnuva objesi
@@ -1099,36 +1099,18 @@ def tournament_create(request):
         name = request.POST.get('name', '').strip()
         short_name = request.POST.get('short_name', '').strip()
         description = request.POST.get('description', '').strip()
-        start_date_str = request.POST.get('start_date', '')
-        end_date_str = request.POST.get('end_date', '')
-        venue_id = request.POST.get('venue', '') or None
-        is_active = request.POST.get('is_active') == 'on'
 
-        if not name or not start_date_str or not end_date_str:
-            messages.error(request, 'Ad, baslangic ve bitis tarihleri zorunludur.')
+        if not name:
+            messages.error(request, 'Turnuva adi zorunludur.')
         else:
-            try:
-                from datetime import date as date_cls
-                start_date = date_cls.fromisoformat(start_date_str)
-                end_date = date_cls.fromisoformat(end_date_str)
-                if start_date > end_date:
-                    raise ValueError('Bitis tarihi baslangictan once olamaz.')
-                Tournament.objects.create(
-                    name=name, short_name=short_name, description=description,
-                    start_date=start_date, end_date=end_date,
-                    venue_id=venue_id, is_active=is_active, created_by=request.user,
-                )
-                messages.success(request, f'Turnuva olusturuldu: {name}')
-                return redirect('core:tournament_list')
-            except (ValueError, TypeError) as e:
-                messages.error(request, str(e))
+            t = Tournament.objects.create(
+                name=name, short_name=short_name, description=description,
+                is_active=True, created_by=request.user,
+            )
+            messages.success(request, f'Turnuva olusturuldu: {name}')
+            return redirect('core:tournament_edit', pk=t.pk)
 
-    from .models import Venue as VenueModel
-    context = {
-        'profile': profile,
-        'venues': VenueModel.objects.all().order_by('name'),
-        'editing': False,
-    }
+    context = {'profile': profile, 'editing': False}
     return render(request, 'core/tournament_form.html', context)
 
 
@@ -1148,37 +1130,25 @@ def tournament_edit(request, pk):
         name = request.POST.get('name', '').strip()
         short_name = request.POST.get('short_name', '').strip()
         description = request.POST.get('description', '').strip()
-        start_date_str = request.POST.get('start_date', '')
-        end_date_str = request.POST.get('end_date', '')
-        venue_id = request.POST.get('venue', '') or None
         is_active = request.POST.get('is_active') == 'on'
 
-        if not name or not start_date_str or not end_date_str:
-            messages.error(request, 'Ad, baslangic ve bitis tarihleri zorunludur.')
+        if not name:
+            messages.error(request, 'Turnuva adi zorunludur.')
         else:
-            try:
-                from datetime import date as date_cls
-                start_date = date_cls.fromisoformat(start_date_str)
-                end_date = date_cls.fromisoformat(end_date_str)
-                if start_date > end_date:
-                    raise ValueError('Bitis tarihi baslangictan once olamaz.')
-                tournament.name = name
-                tournament.short_name = short_name
-                tournament.description = description
-                tournament.start_date = start_date
-                tournament.end_date = end_date
-                tournament.venue_id = venue_id
-                tournament.is_active = is_active
-                tournament.save()
-                messages.success(request, f'Turnuva guncellendi: {name}')
-                return redirect('core:tournament_list')
-            except (ValueError, TypeError) as e:
-                messages.error(request, str(e))
+            tournament.name = name
+            tournament.short_name = short_name
+            tournament.description = description
+            tournament.is_active = is_active
+            tournament.save()
+            messages.success(request, f'Turnuva guncellendi: {name}')
 
+    # GET veya POST sonrasi hep ayni sayfada kal (mac yonetimi icin)
+    matches = tournament.matches.select_related('venue').order_by('date', 'time')
     from .models import Venue as VenueModel
     context = {
         'profile': profile,
         'tournament': tournament,
+        'matches': matches,
         'venues': VenueModel.objects.all().order_by('name'),
         'editing': True,
     }
@@ -1242,6 +1212,68 @@ def tournament_match_add(request, pk):
         'date': match.date.strftime('%d.%m.%Y'),
         'time': match.time.strftime('%H:%M'),
         'venue': match.venue.name if match.venue else '',
+        'round_info': match.round_info,
+    })
+
+
+@login_required
+@require_POST
+def tournament_match_edit(request, match_pk):
+    """Turnuva macini duzenle (JSON POST)."""
+    profile = _get_profile(request)
+    if not _is_admin(profile):
+        return JsonResponse({'error': 'Yetkiniz yok'}, status=403)
+
+    try:
+        match = Match.objects.select_related('venue').get(pk=match_pk)
+    except Match.DoesNotExist:
+        return JsonResponse({'error': 'Mac bulunamadi'}, status=404)
+
+    if not match.is_tournament_match:
+        return JsonResponse({'error': 'Bu mac bir turnuva maci degil'}, status=400)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Gecersiz veri'}, status=400)
+
+    home = data.get('home_team_name', '').strip()
+    away = data.get('away_team_name', '').strip()
+    date_str = data.get('date', '')
+    time_str = data.get('time', '')
+    venue_id = data.get('venue_id') or None
+    round_info = data.get('round_info', '').strip()
+    match_code = data.get('match_code', '').strip()
+
+    if not home or not away or not date_str:
+        return JsonResponse({'error': 'Ev sahibi, deplasman ve tarih zorunludur'}, status=400)
+
+    try:
+        from datetime import date as date_cls, datetime as dt_cls
+        match.date = date_cls.fromisoformat(date_str)
+        if time_str:
+            match.time = dt_cls.strptime(time_str, '%H:%M').time()
+    except (ValueError, TypeError):
+        return JsonResponse({'error': 'Gecersiz tarih/saat'}, status=400)
+
+    match.home_team_name = home
+    match.away_team_name = away
+    match.venue_id = venue_id
+    match.round_info = round_info
+    match.match_code = match_code
+    match.save()
+
+    return JsonResponse({
+        'success': True,
+        'match_id': match.id,
+        'match_code': match.match_code,
+        'home': match.home_team_name,
+        'away': match.away_team_name,
+        'date': match.date.strftime('%d.%m.%Y'),
+        'date_iso': match.date.isoformat(),
+        'time': match.time.strftime('%H:%M'),
+        'venue': match.venue.name if match.venue else '',
+        'venue_id': match.venue_id or '',
         'round_info': match.round_info,
     })
 

@@ -92,8 +92,8 @@ class Tournament(models.Model):
     name = models.CharField(max_length=200, verbose_name='Turnuva Adi')
     short_name = models.CharField(max_length=50, blank=True, verbose_name='Kisa Ad')
     description = models.TextField(blank=True, verbose_name='Aciklama')
-    start_date = models.DateField(verbose_name='Baslangic Tarihi')
-    end_date = models.DateField(verbose_name='Bitis Tarihi')
+    start_date = models.DateField(null=True, blank=True, verbose_name='Baslangic Tarihi')
+    end_date = models.DateField(null=True, blank=True, verbose_name='Bitis Tarihi')
     venue = models.ForeignKey(
         'Venue', on_delete=models.SET_NULL, null=True, blank=True,
         verbose_name='Salon',

@@ -47,5 +47,6 @@ urlpatterns = [
     path('turnuva/yeni/', views.tournament_create, name='tournament_create'),
     path('turnuva/<int:pk>/duzenle/', views.tournament_edit, name='tournament_edit'),
     path('turnuva/<int:pk>/mac-ekle/', views.tournament_match_add, name='tournament_match_add'),
+    path('turnuva/mac/<int:match_pk>/duzenle/', views.tournament_match_edit, name='tournament_match_edit'),
     path('turnuva/mac/<int:match_pk>/sil/', views.tournament_match_delete, name='tournament_match_delete'),
 ]
