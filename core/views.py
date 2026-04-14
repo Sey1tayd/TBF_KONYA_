@@ -70,7 +70,7 @@ def _admin_dashboard(request, profile):
     # Tum maclari cek (sadece bu haftanin)
     qs = Match.objects.filter(
         date__range=(week_start, week_end)
-    ).select_related('league', 'venue').order_by('date', 'time')
+    ).select_related('league', 'tournament', 'venue').order_by('date', 'time')
 
     if league_filter:
         qs = qs.filter(league_id=league_filter)
@@ -156,7 +156,7 @@ def _official_dashboard(request, profile):
     # Bu haftanin tum maclari
     all_week_matches = Match.objects.filter(
         date__range=(week_start, week_end)
-    ).select_related('league', 'venue', 'assignment',
+    ).select_related('league', 'tournament', 'venue', 'assignment',
                      'assignment__head_referee__user',
                      'assignment__assistant_referee__user').order_by('date', 'time')
 
@@ -209,6 +209,7 @@ def _official_dashboard(request, profile):
         'week_offset': week_offset,
         'prev_week': week_offset - 1,
         'next_week': week_offset + 1,
+        'week_total': all_week_matches.count(),
         'my_availabilities': my_availabilities,
         'unreported_days': len(unreported),
         'total_days': len(avail_days),
@@ -1029,7 +1030,7 @@ def match_schedule(request):
 
     qs = Match.objects.filter(
         date__range=(week_start, week_end)
-    ).select_related('league', 'venue', 'assignment',
+    ).select_related('league', 'tournament', 'venue', 'assignment',
                      'assignment__head_referee__user',
                      'assignment__assistant_referee__user').order_by('date', 'time')
 

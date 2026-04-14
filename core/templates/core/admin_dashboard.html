@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-
 {% block title %}Yonetim Paneli - TBF Konya{% endblock %}
 
 {% block extra_css %}
@@ -7,51 +6,52 @@
 .day-block { border-left: 4px solid #dee2e6; margin-bottom: 1rem; }
 .day-block.today { border-left-color: #0d6efd; }
 .day-block.weekend { border-left-color: #fd7e14; }
-.day-header { background: #f8f9fa; padding: 6px 12px; font-weight: 600; font-size: 13px; display: flex; justify-content: space-between; align-items: center; }
+.day-header { background: #f8f9fa; padding: 6px 12px; font-weight: 600; font-size: 13px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px; }
 .day-header.today { background: #cfe2ff; }
 .day-header.weekend { background: #fff3cd; }
 .day-empty { padding: 4px 12px; font-size: 12px; color: #adb5bd; font-style: italic; }
-.match-row { display: flex; align-items: center; gap: 8px; padding: 5px 12px; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+.league-subheader { background: #f0f4ff; padding: 3px 12px; font-size: 11px; font-weight: 700; color: #0d6efd; border-top: 1px solid #e0e8ff; display: flex; justify-content: space-between; align-items: center; }
+.league-subheader.tournament { background: #fff8e1; color: #e65100; border-top-color: #ffe0b2; }
+.match-row { display: flex; align-items: center; gap: 8px; padding: 4px 12px; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
 .match-row:hover { background: #f8f9fa; }
 .match-row:last-child { border-bottom: none; }
 .match-time { min-width: 44px; color: #6c757d; font-size: 12px; }
 .match-code { min-width: 70px; }
-.match-league { min-width: 180px; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: #6c757d; }
 .match-teams { flex: 1; font-weight: 500; }
-.match-venue { min-width: 160px; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: #6c757d; }
-.week-nav { display: flex; align-items: center; gap: 8px; }
+.match-venue { min-width: 150px; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: #6c757d; }
 .stat-card { border-radius: 8px; padding: 12px 16px; text-align: center; }
+.league-badge { font-size: 10px; padding: 2px 6px; border-radius: 3px; }
 </style>
 {% endblock %}
 
 {% block content %}
-<!-- Ust Bar: Istatistikler + Navigasyon -->
+<!-- Ust Bar: Istatistikler -->
 <div class="row g-2 mb-3">
-    <div class="col-md-2">
+    <div class="col-6 col-md-2">
         <div class="stat-card border border-primary h-100">
             <div class="fw-bold text-primary fs-4">{{ total_upcoming }}</div>
             <small class="text-muted">Yaklasan Mac</small>
         </div>
     </div>
-    <div class="col-md-2">
+    <div class="col-6 col-md-2">
         <div class="stat-card border border-warning h-100">
             <div class="fw-bold text-warning fs-4">{{ unassigned_count }}</div>
             <small class="text-muted">Atanmamis</small>
         </div>
     </div>
-    <div class="col-md-2">
+    <div class="col-6 col-md-2">
         <div class="stat-card border border-success h-100">
             <div class="fw-bold text-success fs-4">{{ assigned_count }}</div>
             <small class="text-muted">Atanmis</small>
         </div>
     </div>
-    <div class="col-md-2">
+    <div class="col-6 col-md-2">
         <div class="stat-card border border-info h-100">
             <div class="fw-bold text-info fs-4">{{ reported_officials }}/{{ total_officials }}</div>
             <small class="text-muted">Musaitlik Bildiren</small>
         </div>
     </div>
-    <div class="col-md-4 d-flex align-items-center gap-2 justify-content-end">
+    <div class="col-md-4 d-flex align-items-center gap-2 justify-content-end flex-wrap">
         <a href="{% url 'core:assignment_sheet' %}" class="btn btn-danger btn-sm">
             <i class="bi bi-table"></i> Atama Tablosu
         </a>
@@ -65,7 +65,7 @@
 </div>
 
 <!-- Filtreler -->
-<div class="card mb-3">
+<div class="card mb-2">
     <div class="card-body py-2">
         <form method="get" class="d-flex flex-wrap gap-2 align-items-center">
             <input type="hidden" name="week" value="{{ week_offset }}">
@@ -83,72 +83,85 @@
             </select>
             {% if league_filter or status_filter %}
             <a href="?week={{ week_offset }}" class="btn btn-outline-secondary btn-sm">
-                <i class="bi bi-x"></i> Filtre Temizle
+                <i class="bi bi-x"></i> Temizle
             </a>
             {% endif %}
-            <span class="ms-auto text-muted" style="font-size:12px;">{{ total_week_matches }} mac</span>
+            <span class="ms-auto text-muted" style="font-size:12px;">
+                Bu hafta: <strong>{{ total_week_matches }} mac</strong>
+            </span>
         </form>
     </div>
 </div>
 
 <!-- Hafta Navigasyonu -->
-<div class="d-flex justify-content-between align-items-center mb-3">
+<div class="d-flex justify-content-between align-items-center mb-2">
     <a href="?week={{ prev_week }}{% if league_filter %}&league={{ league_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}"
-       class="btn btn-outline-secondary btn-sm">
-        <i class="bi bi-chevron-left"></i> Onceki Hafta
-    </a>
+       class="btn btn-outline-secondary btn-sm"><i class="bi bi-chevron-left"></i> Onceki</a>
     <div class="text-center">
-        <h6 class="mb-0 fw-bold">{{ week_start|date:"d.m.Y" }} - {{ week_end|date:"d.m.Y" }}</h6>
-        {% if week_offset == 0 %}
-        <small class="text-muted">Bu Hafta</small>
-        {% elif week_offset == 1 %}
-        <small class="text-muted">Gelecek Hafta</small>
-        {% elif week_offset == -1 %}
-        <small class="text-muted">Gecen Hafta</small>
-        {% else %}
-        <small class="text-muted">{{ week_offset }} hafta {% if week_offset > 0 %}ilerisi{% else %}oncesi{% endif %}</small>
-        {% endif %}
+        <strong>{{ week_start|date:"d.m.Y" }} – {{ week_end|date:"d.m.Y" }}</strong>
+        {% if week_offset == 0 %}<span class="badge bg-primary ms-1">Bu Hafta</span>
+        {% elif week_offset == 1 %}<span class="badge bg-secondary ms-1">Gelecek Hafta</span>
+        {% elif week_offset == -1 %}<span class="badge bg-secondary ms-1">Gecen Hafta</span>{% endif %}
     </div>
     <a href="?week={{ next_week }}{% if league_filter %}&league={{ league_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}"
-       class="btn btn-outline-secondary btn-sm">
-        Sonraki Hafta <i class="bi bi-chevron-right"></i>
-    </a>
+       class="btn btn-outline-secondary btn-sm">Sonraki <i class="bi bi-chevron-right"></i></a>
 </div>
 
-<!-- Gunluk Mac Listesi -->
+<!-- Gunluk Mac Listesi - Liglere Gore Gruplu -->
 {% for day in weeks_data %}
 <div class="day-block {% if day.is_today %}today{% elif day.date.weekday >= 5 %}weekend{% endif %}">
     <div class="day-header {% if day.is_today %}today{% elif day.date.weekday >= 5 %}weekend{% endif %}">
         <span>
             <strong>{{ day.day_name }}</strong>
-            <span class="text-muted ms-2" style="font-weight:400;">{{ day.date|date:"d.m.Y" }}</span>
-            {% if day.is_today %}<span class="badge bg-primary ms-1">Bugun</span>{% endif %}
+            <span class="text-muted ms-2 fw-normal">{{ day.date|date:"d.m.Y" }}</span>
+            {% if day.is_today %}<span class="badge bg-primary ms-1" style="font-size:10px;">Bugun</span>{% endif %}
         </span>
-        <span>
+        <span class="d-flex align-items-center gap-1 flex-wrap">
             {% if day.match_count > 0 %}
-            <span class="badge bg-secondary">{{ day.match_count }} mac</span>
-            {% if day.match_count > 0 %}
+            <span class="badge bg-dark">{{ day.match_count }} mac</span>
+            {% regroup day.matches by competition_name as comp_groups %}
+            {% for cg in comp_groups %}
+            <span class="badge bg-secondary league-badge" title="{{ cg.grouper }}">
+                {% if cg.list.0.is_tournament_match %}<i class="bi bi-trophy-fill" style="font-size:9px;"></i>{% endif %}
+                {{ cg.grouper|truncatechars:22 }}
+                <span class="badge bg-light text-dark ms-1" style="font-size:9px;">{{ cg.list|length }}</span>
+            </span>
+            {% endfor %}
             <a href="{% url 'core:assignment_sheet' %}?dates[]={{ day.date|date:'Y-m-d' }}"
-               class="btn btn-outline-danger btn-sm ms-1" style="font-size:11px;">
-                <i class="bi bi-table"></i> Atama Yap
+               class="btn btn-outline-danger btn-sm py-0 px-2 ms-1" style="font-size:11px;">
+                <i class="bi bi-table"></i> Atama
             </a>
-            {% endif %}
             {% endif %}
         </span>
     </div>
+
     {% if day.matches %}
-    {% for match in day.matches %}
+    {% regroup day.matches by competition_name as comp_groups %}
+    {% for cg in comp_groups %}
+    <div class="league-subheader {% if cg.list.0.is_tournament_match %}tournament{% endif %}">
+        <span>
+            {% if cg.list.0.is_tournament_match %}
+            <i class="bi bi-trophy-fill me-1"></i>{{ cg.grouper }}
+            {% else %}
+            <i class="bi bi-collection-fill me-1"></i>{{ cg.grouper }}
+            {% endif %}
+        </span>
+        <span class="text-muted fw-normal">{{ cg.list|length }} mac</span>
+    </div>
+    {% for match in cg.list %}
     <div class="match-row">
         <span class="match-time">{{ match.time|time:"H:i" }}</span>
         <span class="match-code"><code style="font-size:11px;">{{ match.match_code }}</code></span>
-        <span class="match-league" title="{{ match.league.name }}">{{ match.league.name }}</span>
         <span class="match-teams">
             <strong>{{ match.home_team_name|default:"TBD" }}</strong>
-            <span class="text-muted mx-1">vs</span>
+            <span class="text-muted mx-1">–</span>
             <strong>{{ match.away_team_name|default:"TBD" }}</strong>
         </span>
-        <span class="match-venue" title="{{ match.venue.name|default:'-' }}">
-            <i class="bi bi-geo-alt" style="font-size:11px;"></i> {{ match.venue.name|default:"-" }}
+        {% if match.round_info %}
+        <span class="badge bg-danger" style="font-size:10px;">{{ match.round_info }}</span>
+        {% endif %}
+        <span class="match-venue">
+            <i class="bi bi-geo-alt" style="font-size:10px;"></i> {{ match.venue.name|default:"-" }}
         </span>
         <span>
             {% if match.id in assigned_ids %}
@@ -160,6 +173,7 @@
             {% endif %}
         </span>
     </div>
+    {% endfor %}
     {% endfor %}
     {% else %}
     <div class="day-empty">Mac yok</div>

@@ -6,34 +6,33 @@
 .day-block { border-left: 3px solid #dee2e6; margin-bottom: 12px; border-radius: 0 4px 4px 0; }
 .day-block.today { border-left-color: #0d6efd; }
 .day-block.weekend { border-left-color: #fd7e14; }
-.day-header { padding: 5px 12px; font-size:13px; font-weight:600; display:flex; justify-content:space-between; background:#f8f9fa; }
+.day-header { padding: 5px 12px; font-size:13px; font-weight:600; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:4px; background:#f8f9fa; }
 .day-header.today { background:#cfe2ff; }
 .day-header.weekend { background:#fff3cd; }
-.match-row { display:flex; align-items:center; gap:8px; padding:5px 12px; border-bottom:1px solid #f0f0f0; font-size:13px; flex-wrap:wrap; }
+.league-subheader { background:#f0f4ff; padding:3px 12px; font-size:11px; font-weight:700; color:#0d6efd; border-top:1px solid #e0e8ff; display:flex; justify-content:space-between; }
+.league-subheader.tournament { background:#fff8e1; color:#e65100; border-top-color:#ffe0b2; }
+.match-row { display:flex; align-items:center; gap:8px; padding:4px 12px; border-bottom:1px solid #f0f0f0; font-size:13px; flex-wrap:wrap; }
 .match-row:last-child { border-bottom:none; }
 .match-row.my-match { background:#e8f5e9; border-left:3px solid #28a745; }
 .match-row:hover { background:#f5f5f5; }
 .match-row.my-match:hover { background:#d4edda; }
 .match-time { min-width:42px; color:#6c757d; font-size:12px; }
 .match-code { min-width:68px; font-size:11px; }
-.match-league { min-width:150px; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11px; color:#6c757d; }
-.match-teams { flex:1; font-weight:500; min-width:200px; }
-.match-venue { min-width:140px; max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11px; color:#6c757d; }
-.match-officials { font-size:11px; color:#6c757d; min-width:200px; }
+.match-teams { flex:1; font-weight:500; min-width:180px; }
+.match-venue { min-width:130px; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11px; color:#6c757d; }
+.match-officials { font-size:11px; color:#6c757d; }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h4 class="mb-0"><i class="bi bi-calendar3"></i> Mac Programi</h4>
-  <div class="d-flex gap-2">
-    <select id="league-filter" class="form-select form-select-sm" style="width:200px;" onchange="applyLeagueFilter()">
-      <option value="">Tum Ligler</option>
-      {% for league in leagues %}
-      <option value="{{ league.id }}" {% if league_filter == league.id|stringformat:"d" %}selected{% endif %}>{{ league.name }}</option>
-      {% endfor %}
-    </select>
-  </div>
+  <select id="league-filter" class="form-select form-select-sm" style="width:210px;" onchange="applyLeagueFilter()">
+    <option value="">Tum Ligler</option>
+    {% for league in leagues %}
+    <option value="{{ league.id }}" {% if league_filter == league.id|stringformat:"d" %}selected{% endif %}>{{ league.name }}</option>
+    {% endfor %}
+  </select>
 </div>
 
 <!-- Hafta Navigasyonu -->
@@ -66,42 +65,66 @@
       <span class="text-muted ms-2 fw-normal">{{ day.date|date:"d.m.Y" }}</span>
       {% if day.is_today %}<span class="badge bg-primary ms-1" style="font-size:10px;">Bugun</span>{% endif %}
     </span>
-    <span class="text-muted fw-normal" style="font-size:12px;">{{ day.matches|length }} mac</span>
+    <span class="d-flex align-items-center gap-1 flex-wrap">
+      <span class="text-muted fw-normal" style="font-size:12px;">{{ day.matches|length }} mac</span>
+      {% regroup day.matches by competition_name as comp_groups %}
+      {% for cg in comp_groups %}
+      <span class="badge bg-secondary" style="font-size:10px;" title="{{ cg.grouper }}">
+        {% if cg.list.0.is_tournament_match %}<i class="bi bi-trophy-fill" style="font-size:9px;"></i>{% endif %}
+        {{ cg.grouper|truncatechars:18 }}
+        <span class="badge bg-light text-dark ms-1" style="font-size:9px;">{{ cg.list|length }}</span>
+      </span>
+      {% endfor %}
+    </span>
   </div>
+
   {% if day.matches %}
-    {% for match in day.matches %}
-    <div class="match-row {% if match.id in my_match_ids %}my-match{% endif %}">
-      <span class="match-time">{{ match.time|time:"H:i" }}</span>
-      <span class="match-code"><code style="font-size:11px;">{{ match.match_code }}</code></span>
-      <span class="match-league" title="{{ match.league.name }}">{{ match.league.name }}</span>
-      <span class="match-teams">
-        <strong>{{ match.home_team_name|default:"TBD" }}</strong>
-        <span class="text-muted mx-1">–</span>
-        <strong>{{ match.away_team_name|default:"TBD" }}</strong>
-      </span>
-      <span class="match-venue"><i class="bi bi-geo-alt" style="font-size:10px;"></i> {{ match.venue.name|default:"-" }}</span>
-      <span class="match-officials">
-        {% if match.id in my_match_ids %}
-          <span class="badge bg-success" style="font-size:10px;"><i class="bi bi-star-fill"></i> Gorevliyim</span>
+  {% regroup day.matches by competition_name as comp_groups %}
+  {% for cg in comp_groups %}
+  <div class="league-subheader {% if cg.list.0.is_tournament_match %}tournament{% endif %}">
+    <span>
+      {% if cg.list.0.is_tournament_match %}
+        <i class="bi bi-trophy-fill me-1"></i>{{ cg.grouper }}
+      {% else %}
+        <i class="bi bi-collection-fill me-1"></i>{{ cg.grouper }}
+      {% endif %}
+    </span>
+    <span class="fw-normal text-muted">{{ cg.list|length }} mac</span>
+  </div>
+  {% for match in cg.list %}
+  <div class="match-row {% if match.id in my_match_ids %}my-match{% endif %}">
+    <span class="match-time">{{ match.time|time:"H:i" }}</span>
+    <span class="match-code"><code style="font-size:11px;">{{ match.match_code }}</code></span>
+    <span class="match-teams">
+      <strong>{{ match.home_team_name|default:"TBD" }}</strong>
+      <span class="text-muted mx-1">–</span>
+      <strong>{{ match.away_team_name|default:"TBD" }}</strong>
+    </span>
+    {% if match.round_info %}<span class="badge bg-danger" style="font-size:10px;">{{ match.round_info }}</span>{% endif %}
+    <span class="match-venue"><i class="bi bi-geo-alt" style="font-size:10px;"></i> {{ match.venue.name|default:"-" }}</span>
+    <span class="match-officials">
+      {% if match.id in my_match_ids %}
+        <span class="badge bg-success" style="font-size:10px;"><i class="bi bi-star-fill"></i> Gorevliyim</span>
+      {% endif %}
+      {% if match.assignment %}
+        {% if match.assignment.head_referee %}
+          <span class="text-danger fw-bold">BH:</span> {{ match.assignment.head_referee.full_name }}
         {% endif %}
-        {% if match.assignment %}
-          {% if match.assignment.head_referee %}
-            <span class="text-danger fw-bold">BH:</span> {{ match.assignment.head_referee.full_name }}
-          {% endif %}
-          {% if match.assignment.assistant_referee %}
-            &nbsp;<span class="text-warning fw-bold">YH:</span> {{ match.assignment.assistant_referee.full_name }}
-          {% endif %}
-          {% if not match.assignment.head_referee and not match.assignment.assistant_referee %}
-            <span class="badge bg-warning text-dark" style="font-size:10px;">Atama Eksik</span>
-          {% endif %}
-        {% else %}
-          <span class="badge bg-warning text-dark" style="font-size:10px;">Atanmadi</span>
+        {% if match.assignment.assistant_referee %}
+          &nbsp;<span class="text-warning fw-bold">YH:</span> {{ match.assignment.assistant_referee.full_name }}
         {% endif %}
-      </span>
-    </div>
-    {% endfor %}
+        {% if not match.assignment.head_referee and not match.assignment.assistant_referee %}
+          <span class="badge bg-warning text-dark" style="font-size:10px;">Atama Eksik</span>
+        {% endif %}
+      {% else %}
+        <span class="badge bg-warning text-dark" style="font-size:10px;">Atanmadi</span>
+      {% endif %}
+    </span>
+  </div>
+  {% endfor %}
+  {% endfor %}
   {% else %}
-    <div style="padding:4px 12px; font-size:12px; color:#adb5bd; font-style:italic;">Mac yok</div>
+  <div style="padding:4px 12px; font-size:12px; color:#adb5bd; font-style:italic;">Mac yok</div>
   {% endif %}
 </div>
 {% endfor %}
