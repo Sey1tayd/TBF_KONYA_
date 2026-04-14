@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Yeni Atama Penceresi - TBF Konya{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header bg-dark text-white">
+        <h5 class="mb-0"><i class="bi bi-clock-history"></i> Yeni Atama Penceresi</h5>
+      </div>
+      <div class="card-body">
+        <form method="post">
+          {% csrf_token %}
+
+          <div class="mb-3">
+            <label class="form-label fw-bold">Baslik <span class="text-danger">*</span></label>
+            <input type="text" name="title" class="form-control" placeholder="ör: 12-14 Nisan Atama Penceresi" required>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold">Acilis Zamani <span class="text-danger">*</span></label>
+            <input type="datetime-local" name="start_datetime" class="form-control" value="{{ default_start }}" required>
+            <div class="form-text">Bu saatten itibaren atama yapilabilir.</div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold">Kapanis Zamani <span class="text-danger">*</span></label>
+            <input type="datetime-local" name="end_datetime" class="form-control" value="{{ default_end }}" required>
+            <div class="form-text">Bu saatten sonra atama kilitlenir.</div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold">Kapsam</label>
+            <select name="tournament" class="form-select">
+              <option value="">Global — Tum lig maclari icin</option>
+              {% for t in tournaments %}
+              <option value="{{ t.pk }}">🏆 Sadece: {{ t.name }}</option>
+              {% endfor %}
+            </select>
+            <div class="form-text">
+              <strong>Global:</strong> Lig maclari icin gecerlidir.
+              <strong>Turnuva secilirse:</strong> Sadece o turnuvanin maclari icin acilir.
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Not <small class="text-muted">(opsiyonel)</small></label>
+            <textarea name="note" class="form-control" rows="2" placeholder="Bu pencere hakkinda kisa bir not..."></textarea>
+          </div>
+
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-check-lg"></i> Olustur
+            </button>
+            <a href="{% url 'core:assignment_window_list' %}" class="btn btn-outline-secondary">
+              <i class="bi bi-x"></i> Vazgec
+            </a>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="card mt-3 border-info">
+      <div class="card-body py-2" style="font-size:12px; color:#6c757d;">
+        <i class="bi bi-lightbulb text-info"></i>
+        <strong>Ipucu:</strong> Global pencere lig maclarini; turnuva penceresi hem o turnuvayi hem de global pencere aciksa lig maclarini kapsar.
+        Birden fazla pencere olusturabilirsiniz. Pencereyi Pasif Yap butonu ile istediginiz zaman kapatabilirsiniz.
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

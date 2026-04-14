@@ -1,105 +1,143 @@
 {% extends "base.html" %}
-
 {% block title %}Panelim - TBF Konya{% endblock %}
 
+{% block extra_css %}
+<style>
+.day-block { border-left: 3px solid #dee2e6; margin-bottom: 12px; border-radius: 0 4px 4px 0; }
+.day-block.today { border-left-color: #0d6efd; }
+.day-block.weekend { border-left-color: #fd7e14; }
+.day-header { padding: 5px 12px; font-size:13px; font-weight:600; display:flex; justify-content:space-between; background:#f8f9fa; }
+.day-header.today { background:#cfe2ff; }
+.day-header.weekend { background:#fff3cd; }
+.match-row { display:flex; align-items:center; gap:8px; padding:5px 12px; border-bottom:1px solid #f0f0f0; font-size:13px; }
+.match-row:last-child { border-bottom:none; }
+.match-row.my-match { background:#e8f5e9; border-left:3px solid #28a745; }
+.match-row:hover { background:#f5f5f5; }
+.match-row.my-match:hover { background:#d4edda; }
+.match-time { min-width:42px; color:#6c757d; font-size:12px; }
+.match-code { min-width:68px; font-size:11px; }
+.match-league { min-width:160px; max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11px; color:#6c757d; }
+.match-teams { flex:1; font-weight:500; }
+.match-venue { min-width:150px; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11px; color:#6c757d; }
+.avail-badge { display:inline-block; padding:3px 8px; border-radius:4px; font-size:11px; font-weight:600; min-width:70px; text-align:center; }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="row mb-3">
-    <div class="col-12">
-        <h4>Hosgeldiniz, {{ user.get_full_name|default:user.username }}</h4>
-        <p class="text-muted">{{ profile.get_role_display }}</p>
+<!-- Ozet Kart -->
+<div class="row g-2 mb-3">
+  <div class="col-6 col-md-3">
+    <div class="card border-success h-100 text-center py-2">
+      <div class="fw-bold text-success fs-4">{{ my_upcoming_count }}</div>
+      <small class="text-muted">Yaklasan Gorevim</small>
     </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card {% if unreported_days > 0 %}border-warning{% else %}border-success{% endif %} h-100 text-center py-2">
+      <div class="fw-bold {% if unreported_days > 0 %}text-warning{% else %}text-success{% endif %} fs-4">
+        {{ total_days|add:"-"|add:unreported_days }}/{{ total_days }}
+      </div>
+      <small class="text-muted">Gun Bildirildi</small>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <a href="{% url 'core:availability' %}" class="card border-primary h-100 text-decoration-none text-center py-2 d-block">
+      <i class="bi bi-calendar-check text-primary fs-4"></i>
+      <div><small class="text-primary fw-bold">Musaitlik Bildir</small></div>
+    </a>
+  </div>
+  <div class="col-6 col-md-3">
+    <a href="{% url 'core:my_assignments' %}" class="card border-info h-100 text-decoration-none text-center py-2 d-block">
+      <i class="bi bi-clipboard-check text-info fs-4"></i>
+      <div><small class="text-info fw-bold">Gorevlerim</small></div>
+    </a>
+  </div>
 </div>
 
-<!-- Ozet Kartlari -->
-<div class="row mb-4 g-3">
-    <div class="col-md-4">
-        <div class="card h-100 border-info">
-            <div class="card-body text-center">
-                <h2 class="text-info mb-0">{{ my_upcoming|length }}</h2>
-                <small class="text-muted">Yaklasan Gorevim</small>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card h-100 {% if unreported_days > 0 %}border-warning{% else %}border-success{% endif %}">
-            <div class="card-body text-center">
-                <h2 class="{% if unreported_days > 0 %}text-warning{% else %}text-success{% endif %} mb-0">
-                    {{ total_days|add:"-"|add:unreported_days }}/{{ total_days }}
-                </h2>
-                <small class="text-muted">Gun Bildirildi</small>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <a href="{% url 'core:availability' %}" class="card h-100 border-success text-decoration-none">
-            <div class="card-body text-center">
-                <i class="bi bi-calendar-check text-success" style="font-size:2rem;"></i>
-                <br><small class="text-success fw-bold">Musaitlik Bildir</small>
-            </div>
-        </a>
-    </div>
-</div>
-
-<!-- Yaklasan Gorevlerim -->
-{% if my_upcoming %}
-<div class="card mb-4">
-    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-        <h6 class="mb-0"><i class="bi bi-clipboard-check"></i> Yaklasan Gorevlerim</h6>
-        <a href="{% url 'core:my_assignments' %}" class="btn btn-sm btn-outline-light">Tumu</a>
-    </div>
-    <div class="table-responsive">
-        <table class="table table-sm table-hover mb-0">
-            <thead class="table-light">
-                <tr>
-                    <th>Tarih</th>
-                    <th>Saat</th>
-                    <th>Mac</th>
-                    <th>Salon</th>
-                    <th>Lig</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for match in my_upcoming %}
-                <tr>
-                    <td><strong>{{ match.date|date:"d.m.Y" }}</strong></td>
-                    <td>{{ match.time|time:"H:i" }}</td>
-                    <td>{{ match.home_team_name|default:"TBD" }} - {{ match.away_team_name|default:"TBD" }}</td>
-                    <td><small>{{ match.venue.name|default:"-" }}</small></td>
-                    <td><small>{{ match.league.name }}</small></td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
-{% else %}
-<div class="alert alert-info mb-4">
-    <i class="bi bi-info-circle"></i> Henuz atanmis bir goreviniz bulunmuyor. Musaitlik bildiriminizi yapin, atama sorumlusu sizi uygun maclara atayacak.
+{% if active_request %}
+<div class="alert alert-info py-2 mb-3" style="font-size:13px;">
+  <i class="bi bi-megaphone-fill me-1"></i>
+  <strong>{{ active_request.title }}</strong>
+  <span class="ms-2 text-muted">{{ active_request.start_date|date:"d.m.Y" }} – {{ active_request.end_date|date:"d.m.Y" }} tarihleri icin musaitliginizi bildirin.</span>
+  <a href="{% url 'core:availability' %}" class="btn btn-sm btn-outline-primary ms-2 py-0">Bildir</a>
 </div>
 {% endif %}
 
+<!-- Hafta Navigasyonu -->
+<div class="d-flex justify-content-between align-items-center mb-2">
+  <a href="?week={{ prev_week }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-chevron-left"></i> Onceki</a>
+  <div class="text-center">
+    <strong>{{ week_start|date:"d.m.Y" }} – {{ week_end|date:"d.m.Y" }}</strong>
+    {% if week_offset == 0 %}<span class="badge bg-primary ms-1">Bu Hafta</span>{% endif %}
+  </div>
+  <a href="?week={{ next_week }}" class="btn btn-outline-secondary btn-sm">Sonraki <i class="bi bi-chevron-right"></i></a>
+</div>
+
+<div class="mb-1" style="font-size:12px;">
+  <span class="me-3"><span style="display:inline-block;width:12px;height:12px;background:#28a745;border-radius:2px;"></span> Benim macim</span>
+  <span class="me-3"><span style="display:inline-block;width:12px;height:12px;background:#f8f9fa;border:1px solid #dee2e6;border-radius:2px;"></span> Diger maclar</span>
+</div>
+
+{% for day in weeks_data %}
+<div class="day-block {% if day.is_today %}today{% elif day.is_weekend %}weekend{% endif %}">
+  <div class="day-header {% if day.is_today %}today{% elif day.is_weekend %}weekend{% endif %}">
+    <span>
+      <strong>{{ day.day_name }}</strong>
+      <span class="text-muted ms-2 fw-normal">{{ day.date|date:"d.m.Y" }}</span>
+      {% if day.is_today %}<span class="badge bg-primary ms-1" style="font-size:10px;">Bugun</span>{% endif %}
+    </span>
+    <span class="text-muted fw-normal" style="font-size:12px;">{{ day.match_count }} mac</span>
+  </div>
+  {% if day.matches %}
+    {% for match in day.matches %}
+    <div class="match-row {% if match.id in my_match_ids %}my-match{% endif %}">
+      <span class="match-time">{{ match.time|time:"H:i" }}</span>
+      <span class="match-code"><code style="font-size:11px;">{{ match.match_code }}</code></span>
+      <span class="match-league" title="{{ match.league.name }}">{{ match.league.name }}</span>
+      <span class="match-teams">
+        <strong>{{ match.home_team_name|default:"TBD" }}</strong>
+        <span class="text-muted mx-1">–</span>
+        <strong>{{ match.away_team_name|default:"TBD" }}</strong>
+      </span>
+      <span class="match-venue"><i class="bi bi-geo-alt" style="font-size:10px;"></i> {{ match.venue.name|default:"-" }}</span>
+      <span>
+        {% if match.id in my_match_ids %}
+          <span class="badge bg-success" style="font-size:10px;"><i class="bi bi-star-fill"></i> Gorevliyim</span>
+        {% elif match.assignment %}
+          {% if match.is_played %}
+          <span class="badge bg-secondary" style="font-size:10px;">Oynandi</span>
+          {% else %}
+          <span class="badge bg-light text-dark border" style="font-size:10px;">Atandi</span>
+          {% endif %}
+        {% else %}
+          <span class="badge bg-warning text-dark" style="font-size:10px;">Bekliyor</span>
+        {% endif %}
+      </span>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div style="padding:4px 12px; font-size:12px; color:#adb5bd; font-style:italic;">Mac yok</div>
+  {% endif %}
+</div>
+{% endfor %}
+
 <!-- Musaitlik Durumum -->
 {% if my_availabilities %}
-<div class="card">
-    <div class="card-header bg-dark text-white">
-        <h6 class="mb-0"><i class="bi bi-calendar3"></i> Musaitlik Durumum (Onumuzdeki 14 Gun)</h6>
+<div class="card mt-3">
+  <div class="card-header bg-dark text-white py-2">
+    <h6 class="mb-0" style="font-size:13px;"><i class="bi bi-calendar3"></i> Musaitlik Durumum</h6>
+  </div>
+  <div class="card-body py-2">
+    <div class="d-flex flex-wrap gap-2">
+      {% for avail in my_availabilities %}
+      <div class="text-center rounded p-1 {% if avail.is_available %}bg-success bg-opacity-25 border border-success{% else %}bg-danger bg-opacity-25 border border-danger{% endif %}" style="min-width:64px; font-size:11px;">
+        <div>{{ avail.date|date:"d.m" }}</div>
+        <div class="fw-bold">{% if avail.is_available %}Musait{% else %}Dolu{% endif %}</div>
+        {% if avail.note %}<div class="text-muted" style="font-size:10px;">{{ avail.note|truncatechars:12 }}</div>{% endif %}
+      </div>
+      {% endfor %}
     </div>
-    <div class="card-body">
-        <div class="d-flex flex-wrap gap-2">
-            {% for avail in my_availabilities %}
-            <div class="text-center rounded p-2 {% if avail.is_available %}bg-success bg-opacity-25 border border-success{% else %}bg-danger bg-opacity-25 border border-danger{% endif %}"
-                 style="min-width:80px;">
-                <div style="font-size:11px;">{{ avail.date|date:"d.m" }}</div>
-                <div class="fw-bold" style="font-size:12px;">
-                    {% if avail.is_available %}Musait{% else %}Dolu{% endif %}
-                </div>
-                {% if avail.note %}
-                <div style="font-size:10px;" class="text-muted">{{ avail.note }}</div>
-                {% endif %}
-            </div>
-            {% endfor %}
-        </div>
-    </div>
+  </div>
 </div>
 {% endif %}
 {% endblock %}

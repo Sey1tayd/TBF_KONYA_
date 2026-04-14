@@ -33,4 +33,19 @@ urlpatterns = [
 
     # PDF export
     path('atama/pdf/', views.assignment_pdf_view, name='assignment_pdf'),
+
+    # Atama Penceresi (yonetici)
+    path('atama/pencere/', views.assignment_window_list, name='assignment_window_list'),
+    path('atama/pencere/yeni/', views.assignment_window_create, name='assignment_window_create'),
+    path('atama/pencere/<int:pk>/toggle/', views.assignment_window_toggle, name='assignment_window_toggle'),
+
+    # Mac Programi (herkes)
+    path('mac-programi/', views.match_schedule, name='match_schedule'),
+
+    # Turnuva Yonetimi (yonetici)
+    path('turnuva/', views.tournament_list, name='tournament_list'),
+    path('turnuva/yeni/', views.tournament_create, name='tournament_create'),
+    path('turnuva/<int:pk>/duzenle/', views.tournament_edit, name='tournament_edit'),
+    path('turnuva/<int:pk>/mac-ekle/', views.tournament_match_add, name='tournament_match_add'),
+    path('turnuva/mac/<int:match_pk>/sil/', views.tournament_match_delete, name='tournament_match_delete'),
 ]

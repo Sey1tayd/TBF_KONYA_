@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}Mac Programi - TBF Konya{% endblock %}
+
+{% block extra_css %}
+<style>
+.day-block { border-left: 3px solid #dee2e6; margin-bottom: 12px; border-radius: 0 4px 4px 0; }
+.day-block.today { border-left-color: #0d6efd; }
+.day-block.weekend { border-left-color: #fd7e14; }
+.day-header { padding: 5px 12px; font-size:13px; font-weight:600; display:flex; justify-content:space-between; background:#f8f9fa; }
+.day-header.today { background:#cfe2ff; }
+.day-header.weekend { background:#fff3cd; }
+.match-row { display:flex; align-items:center; gap:8px; padding:5px 12px; border-bottom:1px solid #f0f0f0; font-size:13px; flex-wrap:wrap; }
+.match-row:last-child { border-bottom:none; }
+.match-row.my-match { background:#e8f5e9; border-left:3px solid #28a745; }
+.match-row:hover { background:#f5f5f5; }
+.match-row.my-match:hover { background:#d4edda; }
+.match-time { min-width:42px; color:#6c757d; font-size:12px; }
+.match-code { min-width:68px; font-size:11px; }
+.match-league { min-width:150px; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11px; color:#6c757d; }
+.match-teams { flex:1; font-weight:500; min-width:200px; }
+.match-venue { min-width:140px; max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11px; color:#6c757d; }
+.match-officials { font-size:11px; color:#6c757d; min-width:200px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0"><i class="bi bi-calendar3"></i> Mac Programi</h4>
+  <div class="d-flex gap-2">
+    <select id="league-filter" class="form-select form-select-sm" style="width:200px;" onchange="applyLeagueFilter()">
+      <option value="">Tum Ligler</option>
+      {% for league in leagues %}
+      <option value="{{ league.id }}" {% if league_filter == league.id|stringformat:"d" %}selected{% endif %}>{{ league.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+</div>
+
+<!-- Hafta Navigasyonu -->
+<div class="d-flex justify-content-between align-items-center mb-2">
+  <a href="?week={{ prev_week }}{% if league_filter %}&league={{ league_filter }}{% endif %}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-chevron-left"></i> Onceki
+  </a>
+  <div class="text-center">
+    <strong>{{ week_start|date:"d.m.Y" }} – {{ week_end|date:"d.m.Y" }}</strong>
+    {% if week_offset == 0 %}<span class="badge bg-primary ms-1">Bu Hafta</span>{% endif %}
+    <div class="text-muted" style="font-size:11px;">{{ total_week }} mac</div>
+  </div>
+  <a href="?week={{ next_week }}{% if league_filter %}&league={{ league_filter }}{% endif %}" class="btn btn-outline-secondary btn-sm">
+    Sonraki <i class="bi bi-chevron-right"></i>
+  </a>
+</div>
+
+{% if my_match_ids %}
+<div class="mb-2" style="font-size:12px;">
+  <span class="me-3"><span style="display:inline-block;width:12px;height:12px;background:#28a745;border-radius:2px;"></span> Benim macim</span>
+  <span class="me-3"><span style="display:inline-block;width:12px;height:12px;background:#f8f9fa;border:1px solid #dee2e6;border-radius:2px;"></span> Diger maclar</span>
+</div>
+{% endif %}
+
+{% for day in weeks_data %}
+<div class="day-block {% if day.is_today %}today{% elif day.is_weekend %}weekend{% endif %}">
+  <div class="day-header {% if day.is_today %}today{% elif day.is_weekend %}weekend{% endif %}">
+    <span>
+      <strong>{{ day.day_name }}</strong>
+      <span class="text-muted ms-2 fw-normal">{{ day.date|date:"d.m.Y" }}</span>
+      {% if day.is_today %}<span class="badge bg-primary ms-1" style="font-size:10px;">Bugun</span>{% endif %}
+    </span>
+    <span class="text-muted fw-normal" style="font-size:12px;">{{ day.matches|length }} mac</span>
+  </div>
+  {% if day.matches %}
+    {% for match in day.matches %}
+    <div class="match-row {% if match.id in my_match_ids %}my-match{% endif %}">
+      <span class="match-time">{{ match.time|time:"H:i" }}</span>
+      <span class="match-code"><code style="font-size:11px;">{{ match.match_code }}</code></span>
+      <span class="match-league" title="{{ match.league.name }}">{{ match.league.name }}</span>
+      <span class="match-teams">
+        <strong>{{ match.home_team_name|default:"TBD" }}</strong>
+        <span class="text-muted mx-1">–</span>
+        <strong>{{ match.away_team_name|default:"TBD" }}</strong>
+      </span>
+      <span class="match-venue"><i class="bi bi-geo-alt" style="font-size:10px;"></i> {{ match.venue.name|default:"-" }}</span>
+      <span class="match-officials">
+        {% if match.id in my_match_ids %}
+          <span class="badge bg-success" style="font-size:10px;"><i class="bi bi-star-fill"></i> Gorevliyim</span>
+        {% endif %}
+        {% if match.assignment %}
+          {% if match.assignment.head_referee %}
+            <span class="text-danger fw-bold">BH:</span> {{ match.assignment.head_referee.full_name }}
+          {% endif %}
+          {% if match.assignment.assistant_referee %}
+            &nbsp;<span class="text-warning fw-bold">YH:</span> {{ match.assignment.assistant_referee.full_name }}
+          {% endif %}
+          {% if not match.assignment.head_referee and not match.assignment.assistant_referee %}
+            <span class="badge bg-warning text-dark" style="font-size:10px;">Atama Eksik</span>
+          {% endif %}
+        {% else %}
+          <span class="badge bg-warning text-dark" style="font-size:10px;">Atanmadi</span>
+        {% endif %}
+      </span>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div style="padding:4px 12px; font-size:12px; color:#adb5bd; font-style:italic;">Mac yok</div>
+  {% endif %}
+</div>
+{% endfor %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function applyLeagueFilter() {
+  const league = document.getElementById('league-filter').value;
+  const url = new URL(window.location.href);
+  if (league) url.searchParams.set('league', league);
+  else url.searchParams.delete('league');
+  url.searchParams.set('week', '{{ week_offset }}');
+  window.location.href = url.toString();
+}
+</script>
+{% endblock %}

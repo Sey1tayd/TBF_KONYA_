@@ -75,6 +75,30 @@
 {% endblock %}
 
 {% block content %}
+<!-- Atama Penceresi Durumu -->
+{% if not window_is_open %}
+<div class="alert alert-danger d-flex align-items-center py-2 mb-2" style="font-size:13px;">
+  <i class="bi bi-lock-fill me-2 fs-5"></i>
+  <div>
+    <strong>Atama Kapali</strong>
+    {% if upcoming_window %}
+      — Sonraki pencere: <strong>{{ upcoming_window.start_datetime|date:"d.m.Y H:i" }}</strong> / <em>{{ upcoming_window.title }}</em>
+    {% else %}
+      — Aktif bir atama penceresi bulunmuyor. <a href="{% url 'core:assignment_window_list' %}" class="alert-link">Pencere olustur</a>
+    {% endif %}
+    &nbsp;<span class="text-muted">(Atamalara bakabilirsiniz, ancak degisiklik kaydedilmeyecektir.)</span>
+  </div>
+</div>
+{% else %}
+<div class="alert alert-success d-flex align-items-center py-2 mb-2" style="font-size:13px;">
+  <i class="bi bi-unlock-fill me-2 fs-5"></i>
+  <div>
+    <strong>Atama Acik</strong> — <em>{{ active_window.title }}</em>
+    &nbsp;| Kapanma: <strong>{{ active_window.end_datetime|date:"d.m.Y H:i" }}</strong>
+  </div>
+</div>
+{% endif %}
+
 <!-- Filtre Bar -->
 <div class="filter-bar">
     <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
@@ -82,14 +106,29 @@
         <div class="date-picker-grid" id="date-picker">
             <!-- JS ile dolacak -->
         </div>
-        <select id="league-filter" class="form-select form-select-sm ms-2" style="width:200px;">
+        <select id="league-filter" class="form-select form-select-sm ms-2" style="width:190px;">
             <option value="">Tum Ligler</option>
-            {% for league in leagues %}
-            <option value="{{ league.id }}" {% if selected_league == league.id|stringformat:"d" %}selected{% endif %}>
-                {{ league.name }}
+            {% regroup leagues by get_category_display as league_groups %}
+            {% for group in league_groups %}
+            <optgroup label="{{ group.grouper }}">
+              {% for league in group.list %}
+              <option value="{{ league.id }}" {% if selected_league == league.id|stringformat:"d" %}selected{% endif %}>
+                  {{ league.name }}
+              </option>
+              {% endfor %}
+            </optgroup>
+            {% endfor %}
+        </select>
+        {% if tournaments %}
+        <select id="tournament-filter" class="form-select form-select-sm ms-1" style="width:180px;">
+            <option value="">— Turnuva Sec —</option>
+            {% for t in tournaments %}
+            <option value="{{ t.id }}" {% if selected_tournament == t.id|stringformat:"d" %}selected{% endif %}>
+                🏆 {{ t.name }}
             </option>
             {% endfor %}
         </select>
+        {% endif %}
         <button id="apply-filter" class="btn btn-sm btn-primary">
             <i class="bi bi-search"></i> Goster
         </button>
@@ -279,9 +318,12 @@ function buildDatePicker() {
 document.getElementById('apply-filter').addEventListener('click', () => {
     const selected = Array.from(document.querySelectorAll('.date-btn.selected')).map(b => b.dataset.date);
     const league = document.getElementById('league-filter').value;
+    const tournamentEl = document.getElementById('tournament-filter');
+    const tournament = tournamentEl ? tournamentEl.value : '';
     const params = new URLSearchParams();
     selected.forEach(d => params.append('dates[]', d));
     if (league) params.set('league', league);
+    if (tournament) params.set('tournament', tournament);
     window.location.href = '{% url "core:assignment_sheet" %}?' + params.toString();
 });
 

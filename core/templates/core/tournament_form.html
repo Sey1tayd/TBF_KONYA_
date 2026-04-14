@@ -1,0 +1,275 @@
+{% extends "base.html" %}
+{% block title %}{% if editing %}Turnuva Duzenle{% else %}Yeni Turnuva{% endif %} - TBF Konya{% endblock %}
+
+{% block extra_css %}
+<style>
+.match-row-item { font-size:12px; border-bottom:1px solid #f0f0f0; padding:6px 0; }
+.match-row-item:last-child { border-bottom:none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+  <!-- SOL: Turnuva Formu -->
+  <div class="col-md-5">
+    <div class="card">
+      <div class="card-header bg-dark text-white py-2">
+        <h5 class="mb-0" style="font-size:15px;">
+          <i class="bi bi-trophy"></i>
+          {% if editing %}{{ tournament.name }} — Duzenle{% else %}Yeni Turnuva{% endif %}
+        </h5>
+      </div>
+      <div class="card-body">
+        <form method="post">
+          {% csrf_token %}
+          <div class="mb-3">
+            <label class="form-label fw-bold">Turnuva Adi <span class="text-danger">*</span></label>
+            <input type="text" name="name" class="form-control"
+              value="{% if editing %}{{ tournament.name }}{% endif %}" required
+              placeholder="ör: Konya Kupasi 2026">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-bold">Kisa Ad</label>
+            <input type="text" name="short_name" class="form-control"
+              value="{% if editing %}{{ tournament.short_name }}{% endif %}"
+              placeholder="ör: KK2026">
+            <div class="form-text">Tablolarda kisaltma olarak kullanilir.</div>
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col">
+              <label class="form-label fw-bold">Baslangic <span class="text-danger">*</span></label>
+              <input type="date" name="start_date" class="form-control"
+                value="{% if editing %}{{ tournament.start_date|date:'Y-m-d' }}{% endif %}" required>
+            </div>
+            <div class="col">
+              <label class="form-label fw-bold">Bitis <span class="text-danger">*</span></label>
+              <input type="date" name="end_date" class="form-control"
+                value="{% if editing %}{{ tournament.end_date|date:'Y-m-d' }}{% endif %}" required>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-bold">Salon</label>
+            <select name="venue" class="form-select">
+              <option value="">— Belirsiz —</option>
+              {% for v in venues %}
+              <option value="{{ v.pk }}"
+                {% if editing and tournament.venue_id == v.pk %}selected{% endif %}>
+                {{ v.name }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-bold">Aciklama</label>
+            <textarea name="description" class="form-control" rows="2"
+              placeholder="Turnuva hakkinda kisa aciklama...">{% if editing %}{{ tournament.description }}{% endif %}</textarea>
+          </div>
+          <div class="mb-3 form-check">
+            <input type="checkbox" name="is_active" class="form-check-input" id="is_active"
+              {% if not editing or tournament.is_active %}checked{% endif %}>
+            <label class="form-check-label" for="is_active">Aktif</label>
+          </div>
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-check-lg"></i> {% if editing %}Guncelle{% else %}Olustur{% endif %}
+            </button>
+            <a href="{% url 'core:tournament_list' %}" class="btn btn-outline-secondary">
+              <i class="bi bi-x"></i> Iptal
+            </a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- SAG: Mac Yonetimi (sadece duzenleme modunda) -->
+  {% if editing %}
+  <div class="col-md-7">
+    <div class="card">
+      <div class="card-header bg-dark text-white py-2 d-flex justify-content-between align-items-center">
+        <h5 class="mb-0" style="font-size:15px;"><i class="bi bi-collection"></i> Maclar ({{ tournament.match_count }})</h5>
+        <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#addMatchModal">
+          <i class="bi bi-plus-lg"></i> Mac Ekle
+        </button>
+      </div>
+      <div class="card-body p-0">
+        <div id="match-list" style="max-height:500px; overflow-y:auto;">
+          {% with matches=tournament.matches.all %}
+          {% if matches %}
+            {% for m in matches|dictsort:"date" %}
+            <div class="match-row-item px-3 d-flex align-items-center gap-2" id="match-item-{{ m.pk }}">
+              <span class="text-muted" style="min-width:80px; font-size:11px;">{{ m.date|date:"d.m.Y" }}</span>
+              <span class="text-muted" style="min-width:42px; font-size:11px;">{{ m.time|time:"H:i" }}</span>
+              {% if m.round_info %}<span class="badge bg-danger" style="font-size:10px;">{{ m.round_info }}</span>{% endif %}
+              {% if m.match_code %}<code style="font-size:10px;">{{ m.match_code }}</code>{% endif %}
+              <span class="flex-grow-1 fw-bold" style="font-size:12px;">
+                {{ m.home_team_name }} <span class="text-muted">–</span> {{ m.away_team_name }}
+              </span>
+              {% if m.venue %}<span class="text-muted" style="font-size:11px;"><i class="bi bi-geo-alt"></i> {{ m.venue.name }}</span>{% endif %}
+              <button class="btn btn-sm btn-outline-danger py-0 px-1" style="font-size:11px;"
+                onclick="deleteMatch({{ m.pk }}, this)">
+                <i class="bi bi-trash"></i>
+              </button>
+            </div>
+            {% endfor %}
+          {% else %}
+            <div id="no-matches-msg" class="text-center text-muted py-4" style="font-size:13px;">
+              <i class="bi bi-calendar-x" style="font-size:2rem;"></i><br>
+              Henuz mac eklenmemis.
+            </div>
+          {% endif %}
+          {% endwith %}
+        </div>
+      </div>
+      <div class="card-footer py-2">
+        <a href="{% url 'core:assignment_sheet' %}?tournament={{ tournament.pk }}" class="btn btn-sm btn-success">
+          <i class="bi bi-table"></i> Bu Turnuvanin Atama Tablosunu Ac
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mac Ekle Modal -->
+  <div class="modal fade" id="addMatchModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header bg-dark text-white py-2">
+          <h5 class="modal-title" style="font-size:14px;"><i class="bi bi-plus-circle"></i> Mac Ekle</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div id="match-add-error" class="alert alert-danger py-1 d-none" style="font-size:12px;"></div>
+          <div class="row g-2">
+            <div class="col-12">
+              <label class="form-label fw-bold" style="font-size:12px;">Ev Sahibi <span class="text-danger">*</span></label>
+              <input type="text" id="m_home" class="form-control form-control-sm" placeholder="Ev sahibi takim">
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-bold" style="font-size:12px;">Deplasman <span class="text-danger">*</span></label>
+              <input type="text" id="m_away" class="form-control form-control-sm" placeholder="Deplasman takim">
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-bold" style="font-size:12px;">Tarih <span class="text-danger">*</span></label>
+              <input type="date" id="m_date" class="form-control form-control-sm">
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-bold" style="font-size:12px;">Saat</label>
+              <input type="time" id="m_time" class="form-control form-control-sm" value="12:00">
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-bold" style="font-size:12px;">Mac Kodu</label>
+              <input type="text" id="m_code" class="form-control form-control-sm" placeholder="ör: T001">
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-bold" style="font-size:12px;">Tur Bilgisi</label>
+              <input type="text" id="m_round" class="form-control form-control-sm" placeholder="ör: Final, Grup A">
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-bold" style="font-size:12px;">Salon</label>
+              <select id="m_venue" class="form-select form-select-sm">
+                <option value="">— Belirsiz —</option>
+                {% for v in venues %}
+                <option value="{{ v.pk }}">{{ v.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer py-2">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Iptal</button>
+          <button type="button" class="btn btn-success btn-sm" id="btn-add-match">
+            <i class="bi bi-plus-lg"></i> Ekle
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if editing %}
+<script>
+const CSRF = '{{ csrf_token }}';
+const ADD_URL = '{% url "core:tournament_match_add" tournament.pk %}';
+const DELETE_BASE = '/turnuva/mac/';
+
+document.getElementById('btn-add-match').addEventListener('click', function () {
+  const home = document.getElementById('m_home').value.trim();
+  const away = document.getElementById('m_away').value.trim();
+  const date = document.getElementById('m_date').value;
+  const time = document.getElementById('m_time').value || '12:00';
+  const code = document.getElementById('m_code').value.trim();
+  const round = document.getElementById('m_round').value.trim();
+  const venue = document.getElementById('m_venue').value || null;
+  const errEl = document.getElementById('match-add-error');
+
+  if (!home || !away || !date) {
+    errEl.textContent = 'Ev sahibi, deplasman ve tarih zorunludur.';
+    errEl.classList.remove('d-none');
+    return;
+  }
+  errEl.classList.add('d-none');
+
+  fetch(ADD_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+    body: JSON.stringify({ home_team_name: home, away_team_name: away, date, time, match_code: code, round_info: round, venue_id: venue ? parseInt(venue) : null })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (!data.success) {
+      errEl.textContent = data.error || 'Hata';
+      errEl.classList.remove('d-none');
+      return;
+    }
+    // Listeye ekle
+    document.getElementById('no-matches-msg') && document.getElementById('no-matches-msg').remove();
+    const list = document.getElementById('match-list');
+    const div = document.createElement('div');
+    div.className = 'match-row-item px-3 d-flex align-items-center gap-2';
+    div.id = 'match-item-' + data.match_id;
+    div.innerHTML = `
+      <span class="text-muted" style="min-width:80px;font-size:11px;">${data.date}</span>
+      <span class="text-muted" style="min-width:42px;font-size:11px;">${data.time}</span>
+      ${data.round_info ? `<span class="badge bg-danger" style="font-size:10px;">${data.round_info}</span>` : ''}
+      ${data.match_code ? `<code style="font-size:10px;">${data.match_code}</code>` : ''}
+      <span class="flex-grow-1 fw-bold" style="font-size:12px;">${data.home} <span class="text-muted">–</span> ${data.away}</span>
+      ${data.venue ? `<span class="text-muted" style="font-size:11px;"><i class="bi bi-geo-alt"></i> ${data.venue}</span>` : ''}
+      <button class="btn btn-sm btn-outline-danger py-0 px-1" style="font-size:11px;" onclick="deleteMatch(${data.match_id}, this)">
+        <i class="bi bi-trash"></i>
+      </button>
+    `;
+    list.appendChild(div);
+    // Formu temizle
+    ['m_home','m_away','m_date','m_code','m_round'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('m_time').value = '12:00';
+    document.getElementById('m_venue').value = '';
+    bootstrap.Modal.getInstance(document.getElementById('addMatchModal')).hide();
+  })
+  .catch(() => {
+    errEl.textContent = 'Baglanti hatasi.';
+    errEl.classList.remove('d-none');
+  });
+});
+
+function deleteMatch(matchId, btn) {
+  if (!confirm('Bu maci silmek istediginizden emin misiniz?')) return;
+  fetch(`/turnuva/mac/${matchId}/sil/`, {
+    method: 'POST',
+    headers: { 'X-CSRFToken': CSRF }
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) {
+      const el = document.getElementById('match-item-' + matchId);
+      if (el) el.remove();
+    } else {
+      alert(data.error || 'Silinemedi.');
+    }
+  });
+}
+</script>
+{% endif %}
+{% endblock %}

@@ -11,10 +11,26 @@ class UserProfile(models.Model):
         ('il_temsilcisi', 'Il Temsilcisi'),
     ]
 
+    CLASSIFICATION_CHOICES = [
+        ('A', 'A Klasman'),
+        ('B', 'B Klasman'),
+        ('C', 'C Klasman'),
+        ('il', 'Il Hakemi'),
+        ('aday', 'Aday Hakem'),
+        ('', 'Belirsiz'),
+    ]
+
+    # Klasman sirasi (kucuk = oncelikli)
+    CLASSIFICATION_ORDER = {'A': 0, 'B': 1, 'C': 2, 'il': 3, 'aday': 4, '': 5}
+
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     role = models.CharField(max_length=20, choices=ROLE_CHOICES)
     phone = models.CharField(max_length=20, blank=True)
     is_active_official = models.BooleanField(default=True)
+    classification = models.CharField(
+        max_length=10, blank=True, choices=CLASSIFICATION_CHOICES,
+        verbose_name='Klasman', help_text='Sadece hakemler icin gecerlidir'
+    )
 
     class Meta:
         verbose_name = 'Kullanici Profili'
@@ -27,8 +43,28 @@ class UserProfile(models.Model):
     def full_name(self):
         return self.user.get_full_name() or self.user.username
 
+    @property
+    def display_name(self):
+        """Klasman rozeti ile birlikte isim."""
+        name = self.full_name
+        if self.role == 'hakem' and self.classification:
+            return f"{name} ({self.classification})"
+        return name
+
+    @property
+    def classification_order(self):
+        return self.CLASSIFICATION_ORDER.get(self.classification, 5)
+
 
 class League(models.Model):
+    CATEGORY_CHOICES = [
+        ('a_ligi', 'A Ligi'),
+        ('b_ligi', 'B Ligi'),
+        ('gencler', 'Gencler'),
+        ('kucukler', 'Kucukler'),
+        ('diger', 'Diger'),
+    ]
+
     tbf_id = models.IntegerField(unique=True, help_text='TBF faaliyetId')
     name = models.CharField(max_length=200)
     age_group = models.CharField(max_length=50)
@@ -36,6 +72,11 @@ class League(models.Model):
     season = models.CharField(max_length=20, default='2025-2026')
     season_id = models.IntegerField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
+    category = models.CharField(
+        max_length=20, choices=CATEGORY_CHOICES, default='diger',
+        verbose_name='Kategori',
+        help_text='A Ligi, B Ligi gibi kategoriler icin kullanilir',
+    )
 
     class Meta:
         verbose_name = 'Lig'
@@ -44,6 +85,37 @@ class League(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class Tournament(models.Model):
+    """Ozel turnuvalar - TBF API'den senkronize edilmez, manuel olusturulur."""
+    name = models.CharField(max_length=200, verbose_name='Turnuva Adi')
+    short_name = models.CharField(max_length=50, blank=True, verbose_name='Kisa Ad')
+    description = models.TextField(blank=True, verbose_name='Aciklama')
+    start_date = models.DateField(verbose_name='Baslangic Tarihi')
+    end_date = models.DateField(verbose_name='Bitis Tarihi')
+    venue = models.ForeignKey(
+        'Venue', on_delete=models.SET_NULL, null=True, blank=True,
+        verbose_name='Salon',
+    )
+    is_active = models.BooleanField(default=True, verbose_name='Aktif')
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        verbose_name='Olusturan',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Turnuva'
+        verbose_name_plural = 'Turnuvalar'
+        ordering = ['-start_date']
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def match_count(self):
+        return self.matches.count()
 
 
 class Team(models.Model):
@@ -76,7 +148,13 @@ class Venue(models.Model):
 class Match(models.Model):
     tbf_match_id = models.IntegerField(unique=True, null=True, blank=True)
     match_code = models.CharField(max_length=20, blank=True)
-    league = models.ForeignKey(League, on_delete=models.CASCADE, related_name='matches')
+    league = models.ForeignKey(
+        League, on_delete=models.SET_NULL, null=True, blank=True, related_name='matches',
+    )
+    tournament = models.ForeignKey(
+        'Tournament', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='matches', verbose_name='Turnuva',
+    )
     home_team_name = models.CharField(max_length=200)
     away_team_name = models.CharField(max_length=200)
     home_team = models.ForeignKey(Team, on_delete=models.SET_NULL, null=True, blank=True, related_name='home_matches')
@@ -105,6 +183,16 @@ class Match(models.Model):
         from datetime import datetime
         match_dt = datetime.combine(self.date, self.time)
         return timezone.make_aware(match_dt) > timezone.now()
+
+    @property
+    def competition_name(self):
+        if self.tournament_id:
+            return self.tournament.name if self.tournament else ''
+        return self.league.name if self.league_id and self.league else ''
+
+    @property
+    def is_tournament_match(self):
+        return self.tournament_id is not None
 
 
 class Availability(models.Model):
@@ -172,6 +260,78 @@ class AvailabilityRequest(models.Model):
             user__is_active_official=True
         ).values('user').distinct().count()
         return responded, total
+
+
+class AssignmentWindow(models.Model):
+    """Atama yapilabilecek zaman araligini belirler. Bu aralik disinda atama yapilamaz."""
+    title = models.CharField(max_length=200, verbose_name='Baslik')
+    start_datetime = models.DateTimeField(verbose_name='Acilis Zamani')
+    end_datetime = models.DateTimeField(verbose_name='Kapanis Zamani')
+    is_active = models.BooleanField(default=True, verbose_name='Aktif')
+    tournament = models.ForeignKey(
+        'Tournament', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='assignment_windows', verbose_name='Turnuva',
+        help_text='Bos=global (lig maclari). Secilirse sadece o turnuva icin gecerlidir.',
+    )
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    note = models.TextField(blank=True, verbose_name='Not')
+
+    class Meta:
+        verbose_name = 'Atama Penceresi'
+        verbose_name_plural = 'Atama Pencereleri'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        scope = f' [{self.tournament.name}]' if self.tournament_id else ' [Global]'
+        return f"{self.title}{scope} ({self.start_datetime:%d.%m.%Y %H:%M} - {self.end_datetime:%d.%m.%Y %H:%M})"
+
+    @classmethod
+    def get_active(cls):
+        """Simdi acik olan global pencereyi dondur (lig maclari icin)."""
+        from django.utils import timezone
+        now = timezone.now()
+        return cls.objects.filter(
+            is_active=True,
+            tournament__isnull=True,
+            start_datetime__lte=now,
+            end_datetime__gte=now,
+        ).first()
+
+    @classmethod
+    def is_open(cls):
+        return cls.get_active() is not None
+
+    @classmethod
+    def is_open_for_match(cls, match):
+        """
+        Belirli bir mac icin atama penceresi acik mi?
+        - Turnuva maci: turnuva penceresi VEYA global pencere yeterli.
+        - Lig maci: sadece global pencere (tournament=NULL).
+        """
+        from django.utils import timezone
+        now = timezone.now()
+        qs = cls.objects.filter(is_active=True, start_datetime__lte=now, end_datetime__gte=now)
+        if match.is_tournament_match:
+            return qs.filter(
+                models.Q(tournament_id=match.tournament_id) | models.Q(tournament__isnull=True)
+            ).exists()
+        else:
+            return qs.filter(tournament__isnull=True).exists()
+
+    @property
+    def status(self):
+        from django.utils import timezone
+        now = timezone.now()
+        if not self.is_active:
+            return 'disabled'
+        if now < self.start_datetime:
+            return 'upcoming'
+        if now > self.end_datetime:
+            return 'expired'
+        return 'open'
 
 
 class Assignment(models.Model):

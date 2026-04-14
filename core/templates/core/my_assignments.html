@@ -1,94 +1,108 @@
 {% extends "base.html" %}
-
 {% block title %}Gorevlerim - TBF Konya{% endblock %}
 
+{% block extra_css %}
+<style>
+.role-badge { font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
+.officials-mini { font-size: 11px; color: #6c757d; }
+.match-card { border-left: 4px solid #0d6efd; margin-bottom: 8px; border-radius: 0 6px 6px 0; }
+.match-card-header { background: #e8f4fd; padding: 6px 12px; font-size: 13px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
+.match-detail { padding: 6px 12px; font-size: 13px; }
+</style>
+{% endblock %}
+
 {% block content %}
-<h4 class="mb-3"><i class="bi bi-clipboard-check"></i> Gorevlerim</h4>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0"><i class="bi bi-clipboard-check"></i> Gorevlerim</h4>
+  <a href="{% url 'core:match_schedule' %}" class="btn btn-outline-primary btn-sm">
+    <i class="bi bi-calendar3"></i> Mac Programi
+  </a>
+</div>
 
 {% if upcoming_data %}
-<div class="card mb-4">
-    <div class="card-header bg-primary text-white">
-        <h6 class="mb-0">Yaklasan Gorevler ({{ upcoming_data|length }})</h6>
-    </div>
-    <div class="table-responsive">
-        <table class="table table-sm table-hover mb-0">
-            <thead class="table-light">
-                <tr>
-                    <th>Tarih</th>
-                    <th>Gun</th>
-                    <th>Saat</th>
-                    <th>Mac No</th>
-                    <th>Lig</th>
-                    <th>Ev Sahibi</th>
-                    <th>Deplasman</th>
-                    <th>Salon</th>
-                    <th>Gorevim</th>
-                    <th>Diger Hakemler</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in upcoming_data %}
-                <tr>
-                    <td><strong>{{ item.match.date|date:"d.m.Y" }}</strong></td>
-                    <td>{{ item.day_name }}</td>
-                    <td>{{ item.match.time|time:"H:i" }}</td>
-                    <td><code>{{ item.match.match_code }}</code></td>
-                    <td><small>{{ item.match.league.name }}</small></td>
-                    <td><strong>{{ item.match.home_team_name|default:"TBD" }}</strong></td>
-                    <td><strong>{{ item.match.away_team_name|default:"TBD" }}</strong></td>
-                    <td><small>{{ item.match.venue.name|default:"-" }}</small></td>
-                    <td>
-                        <span class="badge bg-danger">{{ item.my_role }}</span>
-                    </td>
-                    <td style="font-size:11px;">
-                        {% if item.assignment %}
-                            {% if item.assignment.head_referee %}
-                                <span class="text-danger">BH: {{ item.assignment.head_referee.full_name }}</span><br>
-                            {% endif %}
-                            {% if item.assignment.assistant_referee %}
-                                <span class="text-warning">YH: {{ item.assignment.assistant_referee.full_name }}</span>
-                            {% endif %}
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+<h6 class="text-primary mb-2"><i class="bi bi-arrow-right-circle"></i> Yaklasan Gorevler ({{ upcoming_data|length }})</h6>
+<div class="table-responsive mb-4">
+  <table class="table table-sm table-hover align-middle" style="font-size:13px;">
+    <thead class="table-dark">
+      <tr>
+        <th>Tarih</th>
+        <th>Gun</th>
+        <th>Saat</th>
+        <th>Mac No</th>
+        <th>Lig</th>
+        <th>Ev Sahibi</th>
+        <th>Deplasman</th>
+        <th>Salon</th>
+        <th>Gorevim</th>
+        <th>Atanan Ekip</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in upcoming_data %}
+      <tr class="table-success">
+        <td><strong>{{ item.match.date|date:"d.m.Y" }}</strong></td>
+        <td>{{ item.day_name }}</td>
+        <td><strong>{{ item.match.time|time:"H:i" }}</strong></td>
+        <td><code>{{ item.match.match_code }}</code></td>
+        <td><small>{{ item.match.league.name }}</small></td>
+        <td><strong>{{ item.match.home_team_name|default:"TBD" }}</strong></td>
+        <td><strong>{{ item.match.away_team_name|default:"TBD" }}</strong></td>
+        <td><small>{{ item.match.venue.name|default:"-" }}</small></td>
+        <td><span class="badge bg-danger">{{ item.my_role }}</span></td>
+        <td class="officials-mini">
+          {% if item.assignment %}
+            {% if item.assignment.head_referee %}<div><span class="text-danger fw-bold">BH:</span> {{ item.assignment.head_referee.full_name }}</div>{% endif %}
+            {% if item.assignment.assistant_referee %}<div><span class="text-warning fw-bold">YH:</span> {{ item.assignment.assistant_referee.full_name }}</div>{% endif %}
+            {% if item.assignment.scorer_1 %}<div><span class="text-primary fw-bold">S1:</span> {{ item.assignment.scorer_1.full_name }}</div>{% endif %}
+            {% if item.assignment.scorer_2 %}<div><span class="text-primary fw-bold">S2:</span> {{ item.assignment.scorer_2.full_name }}</div>{% endif %}
+            {% if item.assignment.timer %}<div><span class="text-info fw-bold">SG:</span> {{ item.assignment.timer.full_name }}</div>{% endif %}
+          {% else %}
+            <span class="text-muted">—</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
 </div>
 {% else %}
 <div class="alert alert-info">
-    <i class="bi bi-info-circle"></i> Yaklasan goreviniz bulunmuyor.
+  <i class="bi bi-info-circle"></i> Henuz atanmis bir goreviniz bulunmuyor.
+  Musaitlik bildiriminizi yaptiysaniz atama sorumlusu sizi uygun maclara atayacaktir.
 </div>
 {% endif %}
 
 {% if past_data %}
-<div class="card">
-    <div class="card-header bg-secondary text-white">
-        <h6 class="mb-0">Gecmis Gorevler</h6>
-    </div>
-    <div class="table-responsive">
-        <table class="table table-sm table-hover mb-0" style="font-size:13px;">
-            <thead class="table-light">
-                <tr>
-                    <th>Tarih</th>
-                    <th>Mac</th>
-                    <th>Lig</th>
-                    <th>Gorev</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in past_data %}
-                <tr class="text-muted">
-                    <td>{{ item.match.date|date:"d.m.Y" }}</td>
-                    <td>{{ item.match.home_team_name|default:"?" }} - {{ item.match.away_team_name|default:"?" }}</td>
-                    <td>{{ item.match.league.name }}</td>
-                    <td><span class="badge bg-secondary">{{ item.my_role }}</span></td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+<h6 class="text-secondary mb-2"><i class="bi bi-clock-history"></i> Gecmis Gorevler ({{ past_data|length }})</h6>
+<div class="table-responsive">
+  <table class="table table-sm table-hover align-middle" style="font-size:12px;">
+    <thead class="table-secondary">
+      <tr>
+        <th>Tarih</th>
+        <th>Gun</th>
+        <th>Saat</th>
+        <th>Mac No</th>
+        <th>Lig</th>
+        <th>Maclar</th>
+        <th>Salon</th>
+        <th>Gorevim</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in past_data %}
+      <tr class="text-muted">
+        <td>{{ item.match.date|date:"d.m.Y" }}</td>
+        <td>{{ item.day_name }}</td>
+        <td>{{ item.match.time|time:"H:i" }}</td>
+        <td><code>{{ item.match.match_code }}</code></td>
+        <td><small>{{ item.match.league.name }}</small></td>
+        <td>{{ item.match.home_team_name|default:"?" }} – {{ item.match.away_team_name|default:"?" }}</td>
+        <td><small>{{ item.match.venue.name|default:"-" }}</small></td>
+        <td><span class="badge bg-secondary">{{ item.my_role }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
 </div>
 {% endif %}
 {% endblock %}

@@ -39,10 +39,25 @@
                         </a>
                     </li>
                     {% endif %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'core:match_schedule' %}">
+                            <i class="bi bi-calendar3"></i> Mac Programi
+                        </a>
+                    </li>
                     {% if user.profile.role == 'atama_sorumlusu' or user.profile.role == 'il_temsilcisi' %}
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'core:assignment_sheet' %}">
                             <i class="bi bi-table"></i> Atama Tablosu
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'core:tournament_list' %}">
+                            <i class="bi bi-trophy"></i> Turnuvalar
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'core:assignment_window_list' %}">
+                            <i class="bi bi-clock-history"></i> Atama Penceresi
                         </a>
                     </li>
                     <li class="nav-item">
