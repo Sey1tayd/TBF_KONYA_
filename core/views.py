@@ -343,9 +343,9 @@ def availability_view(request):
         messages.success(request, f'{saved} gun icin musaitlik bildirildi.')
         return redirect('core:availability')
 
-    # Aktif istek varsa onun tarihlerini goster, yoksa 14 gun
+    # Aktif istek varsa onun gunlerini goster, yoksa 14 gun
     if active_request:
-        date_list = active_request.date_range
+        date_list = active_request.date_list
     else:
         date_list = [today + timedelta(days=i) for i in range(14)]
 
@@ -404,29 +404,36 @@ def availability_summary(request):
     else:
         end_date = None
 
-    # Varsayilan: aktif istek > bu hafta
-    if not start_date:
-        if active_request:
-            start_date = active_request.start_date
-        else:
-            start_date = today - timedelta(days=today.weekday())
-    if not end_date:
-        if active_request:
-            end_date = active_request.end_date
-        else:
-            end_date = start_date + timedelta(days=6)
+    # Gosterilecek tarih listesini belirle
+    if active_request and not start_date:
+        dates_list = active_request.date_list
+    elif start_date and end_date:
+        dates_list = []
+        d = start_date
+        while d <= end_date:
+            dates_list.append(d)
+            d += timedelta(days=1)
+    elif start_date:
+        dates_list = [start_date]
+    else:
+        week_start = today - timedelta(days=today.weekday())
+        dates_list = [week_start + timedelta(days=i) for i in range(7)]
+
+    if dates_list:
+        start_date = dates_list[0]
+        end_date = dates_list[-1]
+    else:
+        start_date = end_date = today
 
     # Tarih listesi (zengin bilgiyle)
     date_range = []
-    d = start_date
-    while d <= end_date:
+    for d in dates_list:
         date_range.append({
             'date': d,
             'short_name': _turkish_short_day(d),
             'weekday': d.weekday(),
             'is_today': d == today,
         })
-        d += timedelta(days=1)
 
     # Gorevliler
     officials = UserProfile.objects.filter(
@@ -436,7 +443,7 @@ def availability_summary(request):
 
     # Musaitlikleri tek sorguda cek
     availabilities = {}
-    for avail in Availability.objects.filter(date__range=(start_date, end_date)):
+    for avail in Availability.objects.filter(date__in=dates_list):
         availabilities[(avail.user_id, avail.date)] = avail
 
     groups = [
@@ -509,14 +516,37 @@ def availability_request_create(request):
 
     if request.method == 'POST':
         title = request.POST.get('title', '').strip()
-        start_date = request.POST.get('start_date')
-        end_date = request.POST.get('end_date')
         description = request.POST.get('description', '')
         target_roles = request.POST.getlist('target_roles')
+        selected_dates_raw = request.POST.getlist('selected_dates[]')
+        deadline_str = request.POST.get('deadline', '')
 
-        if not title or not start_date or not end_date:
-            messages.error(request, 'Baslik ve tarihler zorunludur.')
+        if not title or not selected_dates_raw:
+            messages.error(request, 'Baslik ve en az bir gun secimi zorunludur.')
             return redirect('core:availability_request_create')
+
+        # Tarihleri dogrula ve sirala
+        valid_dates = []
+        for ds in selected_dates_raw:
+            try:
+                valid_dates.append(date.fromisoformat(ds.strip()))
+            except ValueError:
+                pass
+        if not valid_dates:
+            messages.error(request, 'Gecerli tarih girilmedi.')
+            return redirect('core:availability_request_create')
+
+        valid_dates = sorted(set(valid_dates))
+        specific_dates_str = ','.join(d.isoformat() for d in valid_dates)
+
+        deadline_dt = None
+        if deadline_str:
+            try:
+                from django.utils import timezone as tz
+                from datetime import datetime as dt
+                deadline_dt = tz.make_aware(dt.fromisoformat(deadline_str))
+            except (ValueError, TypeError):
+                pass
 
         # Onceki aktif istekleri kapat
         AvailabilityRequest.objects.filter(is_active=True).update(is_active=False)
@@ -524,22 +554,27 @@ def availability_request_create(request):
         AvailabilityRequest.objects.create(
             title=title,
             description=description,
-            start_date=date.fromisoformat(start_date),
-            end_date=date.fromisoformat(end_date),
+            specific_dates=specific_dates_str,
+            start_date=valid_dates[0],
+            end_date=valid_dates[-1],
             target_roles=','.join(target_roles) if target_roles else 'hakem,masa_gorevlisi,gozlemci',
+            deadline=deadline_dt,
             is_active=True,
             created_by=request.user,
         )
-        messages.success(request, f'Musaitlik istegi olusturuldu: {title}')
+        messages.success(request, f'Musaitlik istegi olusturuldu: {title} ({len(valid_dates)} gun)')
         return redirect('core:availability_request_list')
 
+    # Takvimde mac olan gunleri goster
     today = date.today()
-    next_monday = today + timedelta(days=(7 - today.weekday()))
-    next_sunday = next_monday + timedelta(days=6)
-
+    cal_start = today - timedelta(days=3)
+    cal_end = today + timedelta(days=60)
+    match_dates = list(
+        Match.objects.filter(date__range=(cal_start, cal_end), is_played=False)
+        .values_list('date', flat=True).distinct()
+    )
     context = {
-        'default_start': next_monday,
-        'default_end': next_sunday,
+        'match_dates_json': json.dumps([d.isoformat() for d in match_dates]),
     }
     return render(request, 'core/availability_request_create.html', context)
 
@@ -753,10 +788,6 @@ def assignment_save(request):
         match = Match.objects.select_related('tournament').get(id=match_id)
     except Match.DoesNotExist:
         return JsonResponse({'error': 'Mac bulunamadi'}, status=404)
-
-    # Atama penceresi kontrolu - maca gore kontrol et
-    if not AssignmentWindow.is_open_for_match(match):
-        return JsonResponse({'error': 'Atama penceresi kapali. Simdi atama yapilamaz.'}, status=403)
 
     assignment, _ = Assignment.objects.get_or_create(
         match=match, defaults={'created_by': request.user}

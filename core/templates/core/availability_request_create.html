@@ -1,69 +1,229 @@
 {% extends "base.html" %}
-
 {% block title %}Yeni Musaitlik Istegi - TBF Konya{% endblock %}
+
+{% block extra_css %}
+<style>
+.cal-grid { display: flex; flex-wrap: wrap; gap: 4px; }
+.cal-month-label { width: 100%; font-size: 11px; font-weight: 700; color: #6c757d; padding: 4px 2px 2px; }
+.cal-day {
+  width: 38px; height: 38px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; border: 1px solid #dee2e6;
+  border-radius: 4px; cursor: pointer; font-size: 11px; background: #f8f9fa;
+  user-select: none; transition: all .1s;
+}
+.cal-day:hover { border-color: #0d6efd; background: #e7f1ff; }
+.cal-day.selected { background: #0d6efd; color: #fff; border-color: #0d6efd; font-weight: 700; }
+.cal-day.has-match { border-color: #fd7e14; }
+.cal-day.selected.has-match { background: #fd7e14; border-color: #fd7e14; }
+.cal-day .day-num { font-size: 13px; font-weight: 600; line-height: 1; }
+.cal-day .day-name { font-size: 9px; opacity: .75; }
+.cal-day .mac-dot { width: 5px; height: 5px; border-radius: 50%; background: #fd7e14; margin-top: 1px; }
+.cal-day.selected .mac-dot { background: #fff; }
+.selected-list { display: flex; flex-wrap: wrap; gap: 4px; min-height: 32px; padding: 6px; background: #f0f8ff; border-radius: 4px; border: 1px solid #b8d9f8; }
+.sel-tag { background: #0d6efd; color: #fff; border-radius: 3px; padding: 2px 8px; font-size: 12px; display: flex; align-items: center; gap: 4px; }
+.sel-tag .remove { cursor: pointer; opacity: .8; }
+.sel-tag .remove:hover { opacity: 1; }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-md-8">
-        <h4 class="mb-3"><i class="bi bi-megaphone"></i> Yeni Musaitlik Istegi</h4>
-        <p class="text-muted">Gorevlilerden belirli tarih araligi icin musaitlik bildirmelerini isteyin.</p>
+  <div class="col-lg-9">
+    <h4 class="mb-3"><i class="bi bi-megaphone"></i> Yeni Musaitlik Istegi</h4>
 
-        <div class="card">
-            <div class="card-body">
-                <form method="post">
-                    {% csrf_token %}
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Baslik *</label>
-                        <input type="text" name="title" class="form-control"
-                               placeholder="Ornek: 31. Hafta Musaitlik" required>
-                    </div>
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">Baslangic Tarihi *</label>
-                            <input type="date" name="start_date" class="form-control"
-                                   value="{{ default_start|date:'Y-m-d' }}" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">Bitis Tarihi *</label>
-                            <input type="date" name="end_date" class="form-control"
-                                   value="{{ default_end|date:'Y-m-d' }}" required>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Aciklama</label>
-                        <textarea name="description" class="form-control" rows="2"
-                                  placeholder="Ek bilgi (istege bagli)"></textarea>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Hedef Roller</label>
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" name="target_roles" value="hakem" id="r_hakem" checked>
-                            <label class="form-check-label" for="r_hakem">Hakemler</label>
-                        </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" name="target_roles" value="masa_gorevlisi" id="r_masa" checked>
-                            <label class="form-check-label" for="r_masa">Masa Gorevlileri</label>
-                        </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" name="target_roles" value="gozlemci" id="r_gozlemci" checked>
-                            <label class="form-check-label" for="r_gozlemci">Gozlemciler</label>
-                        </div>
-                    </div>
-                    <div class="d-flex gap-2">
-                        <button type="submit" class="btn btn-success">
-                            <i class="bi bi-send"></i> Istek Olustur
-                        </button>
-                        <a href="{% url 'core:availability_request_list' %}" class="btn btn-outline-secondary">Iptal</a>
-                    </div>
-                </form>
+    <div class="card">
+      <div class="card-body">
+        <form method="post" id="req-form">
+          {% csrf_token %}
+
+          <div class="mb-3">
+            <label class="form-label fw-bold">Baslik <span class="text-danger">*</span></label>
+            <input type="text" name="title" class="form-control" required placeholder="ör: 3-8 Mayis Musaitlik">
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold">Aciklama <small class="text-muted fw-normal">(opsiyonel)</small></label>
+            <textarea name="description" class="form-control" rows="2" placeholder="Gorevlilere gosterilecek ek bilgi..."></textarea>
+          </div>
+
+          <!-- Gun Secici -->
+          <div class="mb-3">
+            <label class="form-label fw-bold">Gunleri Sec <span class="text-danger">*</span>
+              <small class="text-muted fw-normal ms-1">— Birden fazla gun secebilirsiniz</small>
+            </label>
+            <div id="selected-tags" class="selected-list mb-2">
+              <span class="text-muted" id="no-sel-msg" style="font-size:12px;">Henuz gun secilmedi</span>
             </div>
-        </div>
+            <div id="cal-grid" class="cal-grid"></div>
+            <div id="hidden-dates"></div>
+          </div>
 
-        <div class="alert alert-warning mt-3" style="font-size:13px;">
-            <i class="bi bi-exclamation-triangle"></i>
-            Yeni istek olusturuldiginda onceki aktif istek otomatik olarak kapatilir.
-            Gorevliler giris yaptiklarinda sadece aktif istegin tarihlerini gorecektir.
-        </div>
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label fw-bold">Son Bildirim Tarihi <small class="text-muted fw-normal">(opsiyonel)</small></label>
+              <input type="datetime-local" name="deadline" class="form-control">
+              <div class="form-text">Bu saatten sonra gorevliler hala bildirebilir, ancak uyari gosterilir.</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold">Hedef Roller</label>
+              <div class="mt-1">
+                <div class="form-check form-check-inline">
+                  <input class="form-check-input" type="checkbox" name="target_roles" value="hakem" id="r_hakem" checked>
+                  <label class="form-check-label" for="r_hakem">Hakemler</label>
+                </div>
+                <div class="form-check form-check-inline">
+                  <input class="form-check-input" type="checkbox" name="target_roles" value="masa_gorevlisi" id="r_masa" checked>
+                  <label class="form-check-label" for="r_masa">Masa</label>
+                </div>
+                <div class="form-check form-check-inline">
+                  <input class="form-check-input" type="checkbox" name="target_roles" value="gozlemci" id="r_gozlemci" checked>
+                  <label class="form-check-label" for="r_gozlemci">Gozlemci</label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="d-flex gap-2 align-items-center">
+            <button type="submit" class="btn btn-success" id="btn-submit">
+              <i class="bi bi-send"></i> Istegi Olustur ve Gonder
+            </button>
+            <a href="{% url 'core:availability_request_list' %}" class="btn btn-outline-secondary">Iptal</a>
+            <span id="sel-count" class="text-muted ms-2" style="font-size:13px;"></span>
+          </div>
+        </form>
+      </div>
     </div>
+
+    <div class="alert alert-warning mt-3 py-2" style="font-size:12px;">
+      <i class="bi bi-exclamation-triangle"></i>
+      Yeni istek olusturuldugunda onceki aktif istek otomatik kapanir. Gorevliler giris yapinca sadece aktif istegin gunlerini gorur.
+    </div>
+  </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Turkce gun isimleri
+const DAY_NAMES = ['Paz','Pzt','Sal','Car','Per','Cum','Cmt'];
+const MONTH_NAMES = ['Ocak','Subat','Mart','Nisan','Mayis','Haziran','Temmuz','Agustos','Eylul','Ekim','Kasim','Aralik'];
+
+// Macı olan gunler (backend'den gelmesi yerine burada hesapla — basit tutmak icin bos)
+const MATCH_DATES = new Set({{ match_dates_json|safe }});
+
+const selected = new Set();
+
+function formatDate(d) {
+  const dd = String(d.getDate()).padStart(2,'0');
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  return `${dd}.${mm}.${d.getFullYear()}`;
+}
+function toISO(d) {
+  return d.toISOString().slice(0,10);
+}
+
+function buildCalendar() {
+  const grid = document.getElementById('cal-grid');
+  grid.innerHTML = '';
+
+  const today = new Date(); today.setHours(0,0,0,0);
+  const start = new Date(today);
+  start.setDate(start.getDate() - 3);
+  const end = new Date(today);
+  end.setDate(end.getDate() + 60);
+
+  let cur = new Date(start);
+  let lastMonth = -1;
+
+  while (cur <= end) {
+    const iso = toISO(cur);
+    const month = cur.getMonth();
+    if (month !== lastMonth) {
+      const lbl = document.createElement('div');
+      lbl.className = 'cal-month-label';
+      lbl.textContent = MONTH_NAMES[month] + ' ' + cur.getFullYear();
+      grid.appendChild(lbl);
+      lastMonth = month;
+    }
+
+    const hasMatch = MATCH_DATES.has(iso);
+    const isSel = selected.has(iso);
+
+    const el = document.createElement('div');
+    el.className = 'cal-day' + (isSel ? ' selected' : '') + (hasMatch ? ' has-match' : '');
+    el.dataset.iso = iso;
+    el.innerHTML = `<span class="day-num">${cur.getDate()}</span><span class="day-name">${DAY_NAMES[cur.getDay()]}</span>${hasMatch ? '<span class="mac-dot"></span>' : ''}`;
+    el.addEventListener('click', () => toggleDate(iso, formatDate(cur)));
+    grid.appendChild(el);
+
+    cur.setDate(cur.getDate() + 1);
+  }
+}
+
+function toggleDate(iso, label) {
+  if (selected.has(iso)) {
+    selected.delete(iso);
+  } else {
+    selected.add(iso);
+  }
+  refreshUI();
+}
+
+function refreshUI() {
+  // Takvim renklerini guncelle
+  document.querySelectorAll('.cal-day').forEach(el => {
+    el.classList.toggle('selected', selected.has(el.dataset.iso));
+  });
+
+  // Tag listesi
+  const tagsEl = document.getElementById('selected-tags');
+  const noSelMsg = document.getElementById('no-sel-msg');
+  const hiddenEl = document.getElementById('hidden-dates');
+  const countEl = document.getElementById('sel-count');
+
+  tagsEl.innerHTML = '';
+  hiddenEl.innerHTML = '';
+
+  const sorted = Array.from(selected).sort();
+
+  if (sorted.length === 0) {
+    const msg = document.createElement('span');
+    msg.id = 'no-sel-msg';
+    msg.className = 'text-muted';
+    msg.style.fontSize = '12px';
+    msg.textContent = 'Henuz gun secilmedi';
+    tagsEl.appendChild(msg);
+    countEl.textContent = '';
+  } else {
+    sorted.forEach(iso => {
+      const d = new Date(iso + 'T00:00:00');
+      const tag = document.createElement('div');
+      tag.className = 'sel-tag';
+      tag.innerHTML = `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')} ${DAY_NAMES[d.getDay()]} <span class="remove" onclick="removeDate('${iso}')">×</span>`;
+      tagsEl.appendChild(tag);
+
+      const inp = document.createElement('input');
+      inp.type = 'hidden';
+      inp.name = 'selected_dates[]';
+      inp.value = iso;
+      hiddenEl.appendChild(inp);
+    });
+    countEl.textContent = sorted.length + ' gun secildi';
+  }
+}
+
+function removeDate(iso) {
+  selected.delete(iso);
+  refreshUI();
+}
+
+document.getElementById('req-form').addEventListener('submit', function(e) {
+  if (selected.size === 0) {
+    e.preventDefault();
+    alert('Lutfen en az bir gun secin.');
+  }
+});
+
+buildCalendar();
+</script>
 {% endblock %}

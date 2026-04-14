@@ -1,98 +1,92 @@
 {% extends "base.html" %}
-
 {% block title %}Musaitlik Bildir - TBF Konya{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-12">
-        <h4><i class="bi bi-calendar-check"></i> Musaitlik Bildir</h4>
-        {% if active_request %}
-        <div class="alert alert-info d-flex align-items-center mb-3">
-            <i class="bi bi-megaphone-fill me-2 fs-5"></i>
-            <div>
-                <strong>{{ active_request.title }}</strong>
-                <span class="ms-2 text-muted">{{ active_request.start_date|date:"d.m.Y" }} - {{ active_request.end_date|date:"d.m.Y" }}</span>
-                {% if active_request.description %}
-                <br><small>{{ active_request.description }}</small>
-                {% endif %}
-            </div>
-        </div>
+<h4 class="mb-3"><i class="bi bi-calendar-check"></i> Musaitlik Bildir</h4>
+
+{% if active_request %}
+<div class="alert alert-info d-flex align-items-start mb-3 py-2">
+  <i class="bi bi-megaphone-fill me-2 fs-5 mt-1"></i>
+  <div>
+    <strong>{{ active_request.title }}</strong>
+    {% if active_request.description %}<br><small>{{ active_request.description }}</small>{% endif %}
+    <div class="mt-1" style="font-size:12px;">
+      <span class="badge bg-primary me-1">{{ active_request.date_list|length }} gun secilmis</span>
+      {% if active_request.deadline %}
+        {% if active_request.deadline_passed %}
+          <span class="badge bg-danger"><i class="bi bi-clock"></i> Son tarih gecti: {{ active_request.deadline|date:"d.m.Y H:i" }}</span>
         {% else %}
-        <p class="text-muted">Onumuzdeki 14 gun icin musaitlik durumunuzu bildirin.</p>
+          <span class="badge bg-warning text-dark"><i class="bi bi-clock"></i> Son bildirim: {{ active_request.deadline|date:"d.m.Y H:i" }}</span>
         {% endif %}
+      {% endif %}
     </div>
+  </div>
 </div>
+{% else %}
+<p class="text-muted">Aktif bir musaitlik istegi yok. Asagida onumuzdeki 14 gun gosteriliyor.</p>
+{% endif %}
 
 <form method="post">
-    {% csrf_token %}
-    <div class="card">
-        <div class="table-responsive">
-            <table class="table table-bordered table-hover mb-0">
-                <thead class="table-dark">
-                    <tr>
-                        <th style="width: 140px;">Tarih</th>
-                        <th style="width: 100px;">Gun</th>
-                        <th style="width: 80px;">Mac Sayisi</th>
-                        <th style="width: 150px;">Durum</th>
-                        <th>Not</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for day in days %}
-                    <tr class="{% if day.existing and day.existing.is_available %}table-success{% elif day.existing and not day.existing.is_available %}table-danger{% endif %}">
-                        <td>
-                            <strong>{{ day.date|date:"d.m.Y" }}</strong>
-                            <input type="hidden" name="dates[]" value="{{ day.date|date:'Y-m-d' }}">
-                        </td>
-                        <td>{{ day.day_name }}</td>
-                        <td class="text-center">
-                            {% if day.match_count %}
-                            <span class="badge bg-primary">{{ day.match_count }}</span>
-                            {% else %}
-                            <span class="text-muted">-</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <select name="statuses[]" class="form-select form-select-sm availability-select">
-                                <option value="available" {% if day.existing and day.existing.is_available %}selected{% endif %}>
-                                    Musaitim
-                                </option>
-                                <option value="unavailable" {% if day.existing and not day.existing.is_available %}selected{% endif %}>
-                                    Musait Degilim
-                                </option>
-                            </select>
-                        </td>
-                        <td>
-                            <input type="text" name="notes[]" class="form-control form-control-sm"
-                                   value="{{ day.existing.note|default:'' }}"
-                                   placeholder="Aciklama (istege bagli)">
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        <div class="card-footer text-end">
-            <button type="submit" class="btn btn-success">
-                <i class="bi bi-check-lg"></i> Kaydet
-            </button>
-        </div>
+  {% csrf_token %}
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table table-bordered table-hover mb-0" style="font-size:13px;">
+        <thead class="table-dark">
+          <tr>
+            <th style="width:130px;">Tarih</th>
+            <th style="width:90px;">Gun</th>
+            <th style="width:75px; text-align:center;">Mac</th>
+            <th style="width:160px;">Durum</th>
+            <th>Not</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for day in days %}
+          <tr class="{% if day.existing and day.existing.is_available %}table-success{% elif day.existing and not day.existing.is_available %}table-danger{% endif %}">
+            <td>
+              <strong>{{ day.date|date:"d.m.Y" }}</strong>
+              <input type="hidden" name="dates[]" value="{{ day.date|date:'Y-m-d' }}">
+            </td>
+            <td>{{ day.day_name }}</td>
+            <td class="text-center">
+              {% if day.match_count %}
+                <span class="badge bg-primary">{{ day.match_count }}</span>
+              {% else %}
+                <span class="text-muted">-</span>
+              {% endif %}
+            </td>
+            <td>
+              <select name="statuses[]" class="form-select form-select-sm availability-select">
+                <option value="available" {% if not day.existing or day.existing.is_available %}selected{% endif %}>Musaitim</option>
+                <option value="unavailable" {% if day.existing and not day.existing.is_available %}selected{% endif %}>Musait Degilim</option>
+              </select>
+            </td>
+            <td>
+              <input type="text" name="notes[]" class="form-control form-control-sm"
+                value="{{ day.existing.note|default:'' }}" placeholder="Aciklama (istege bagli)">
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
+    <div class="card-footer text-end">
+      <button type="submit" class="btn btn-success">
+        <i class="bi bi-check-lg"></i> Kaydet
+      </button>
+    </div>
+  </div>
 </form>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 document.querySelectorAll('.availability-select').forEach(select => {
-    select.addEventListener('change', function() {
-        const row = this.closest('tr');
-        row.classList.remove('table-success', 'table-danger');
-        if (this.value === 'available') {
-            row.classList.add('table-success');
-        } else {
-            row.classList.add('table-danger');
-        }
-    });
+  select.addEventListener('change', function() {
+    const row = this.closest('tr');
+    row.classList.remove('table-success', 'table-danger');
+    row.classList.add(this.value === 'available' ? 'table-success' : 'table-danger');
+  });
 });
 </script>
 {% endblock %}

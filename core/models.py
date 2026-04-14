@@ -218,11 +218,18 @@ class AvailabilityRequest(models.Model):
     """Yoneticinin gorevlilerden musaitlik istemesi icin olusturulan istek."""
     title = models.CharField(max_length=200, verbose_name='Baslik')
     description = models.TextField(blank=True, verbose_name='Aciklama')
-    start_date = models.DateField(verbose_name='Baslangic Tarihi')
-    end_date = models.DateField(verbose_name='Bitis Tarihi')
+    # Eski alan - geri uyumluluk icin nullable
+    start_date = models.DateField(null=True, blank=True, verbose_name='Baslangic Tarihi')
+    end_date = models.DateField(null=True, blank=True, verbose_name='Bitis Tarihi')
+    # Yeni: virgul ile ayrilmis ISO tarihleri "2026-04-03,2026-04-06,2026-04-07"
+    specific_dates = models.TextField(
+        blank=True,
+        verbose_name='Secilen Gunler',
+        help_text='Virgul ile ayrilmis ISO tarihler: 2026-04-03,2026-04-06'
+    )
     target_roles = models.CharField(
         max_length=100, default='hakem,masa_gorevlisi,gozlemci',
-        help_text='Virgul ile ayrilmis roller: hakem,masa_gorevlisi,gozlemci'
+        help_text='Virgul ile ayrilmis roller'
     )
     is_active = models.BooleanField(default=True)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
@@ -235,27 +242,57 @@ class AvailabilityRequest(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"{self.title} ({self.start_date} - {self.end_date})"
+        return self.title
 
     @property
+    def date_list(self):
+        """Secilen gunlerin listesi. specific_dates varsa onu kullan, yoksa aralik."""
+        from datetime import date as date_cls
+        if self.specific_dates:
+            dates = []
+            for s in self.specific_dates.split(','):
+                s = s.strip()
+                if s:
+                    try:
+                        dates.append(date_cls.fromisoformat(s))
+                    except ValueError:
+                        pass
+            return sorted(dates)
+        # Geri uyumluluk: aralik varsa kullan
+        if self.start_date and self.end_date:
+            from datetime import timedelta
+            dates = []
+            d = self.start_date
+            while d <= self.end_date:
+                dates.append(d)
+                d += timedelta(days=1)
+            return dates
+        return []
+
+    # Geri uyumluluk alias
+    @property
     def date_range(self):
-        from datetime import timedelta
-        dates = []
-        d = self.start_date
-        while d <= self.end_date:
-            dates.append(d)
-            d += timedelta(days=1)
-        return dates
+        return self.date_list
 
     @property
     def target_role_list(self):
         return [r.strip() for r in self.target_roles.split(',') if r.strip()]
 
+    @property
+    def deadline_passed(self):
+        if not self.deadline:
+            return False
+        from django.utils import timezone
+        return timezone.now() > self.deadline
+
     def get_response_count(self):
         roles = self.target_role_list
         total = UserProfile.objects.filter(role__in=roles, is_active_official=True).count()
+        dates = self.date_list
+        if not dates:
+            return 0, total
         responded = Availability.objects.filter(
-            date__range=(self.start_date, self.end_date),
+            date__in=dates,
             user__role__in=roles,
             user__is_active_official=True
         ).values('user').distinct().count()
