@@ -29,6 +29,8 @@ urlpatterns = [
     path('atama/', views.assignment_sheet, name='assignment_sheet'),
     path('atama/kaydet/', views.assignment_save, name='assignment_save'),
     path('atama/mac-guncelle/', views.match_update, name='match_update'),
+    path('atama/mac-ekle/', views.match_create_ajax, name='match_create_ajax'),
+    path('atama/mac-sil/', views.match_delete_ajax, name='match_delete_ajax'),
 
     # API endpoints
     path('api/musait-kisiler/', views.api_available_people, name='api_available_people'),

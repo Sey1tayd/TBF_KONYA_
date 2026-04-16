@@ -938,6 +938,101 @@ def match_update(request):
 
 
 @login_required
+@require_POST
+def match_create_ajax(request):
+    """Atama tablosundan yeni mac olustur."""
+    profile = _get_profile(request)
+    if not _is_admin(profile):
+        return JsonResponse({'error': 'Yetkiniz yok'}, status=403)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Gecersiz veri'}, status=400)
+
+    match_date_str = data.get('date', '')
+    match_time_str = data.get('time', '19:00')
+    home_team = data.get('home_team', 'TBD')
+    away_team = data.get('away_team', 'TBD')
+    venue_id = data.get('venue_id')
+    league_id = data.get('league_id')
+    tournament_id = data.get('tournament_id')
+
+    try:
+        match_date = date.fromisoformat(match_date_str)
+    except (ValueError, TypeError):
+        return JsonResponse({'error': 'Gecersiz tarih'}, status=400)
+
+    try:
+        from datetime import time as dt_time
+        parts = match_time_str.split(':')
+        match_time = dt_time(int(parts[0]), int(parts[1]))
+    except (ValueError, IndexError):
+        match_time = dt_time(19, 0)
+
+    from core.models import Venue
+    match = Match(
+        date=match_date,
+        time=match_time,
+        home_team_name=home_team or 'TBD',
+        away_team_name=away_team or 'TBD',
+        is_played=False,
+    )
+    if venue_id:
+        try:
+            match.venue = Venue.objects.get(id=int(venue_id))
+        except (Venue.DoesNotExist, ValueError):
+            pass
+    if league_id:
+        try:
+            match.league = League.objects.get(id=int(league_id))
+        except (League.DoesNotExist, ValueError):
+            pass
+    if tournament_id:
+        try:
+            match.tournament = Tournament.objects.get(id=int(tournament_id))
+        except (Tournament.DoesNotExist, ValueError):
+            pass
+
+    match.save()
+    return JsonResponse({
+        'success': True,
+        'match_id': match.id,
+        'date': match.date.isoformat(),
+        'time': match.time.strftime('%H:%M'),
+        'home_team': match.home_team_name,
+        'away_team': match.away_team_name,
+        'venue_name': match.venue.name if match.venue else '-',
+        'venue_id': match.venue_id or '',
+        'competition_name': match.competition_name,
+    })
+
+
+@login_required
+@require_POST
+def match_delete_ajax(request):
+    """Atama tablosundan mac sil."""
+    profile = _get_profile(request)
+    if not _is_admin(profile):
+        return JsonResponse({'error': 'Yetkiniz yok'}, status=403)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Gecersiz veri'}, status=400)
+
+    match_id = data.get('match_id')
+    try:
+        match = Match.objects.get(id=match_id)
+        # Iliskili atamayi da sil
+        Assignment.objects.filter(match=match).delete()
+        match.delete()
+        return JsonResponse({'success': True, 'match_id': match_id})
+    except Match.DoesNotExist:
+        return JsonResponse({'error': 'Mac bulunamadi'}, status=404)
+
+
+@login_required
 def api_available_people(request):
     """Belirli bir tarih ve rol icin musait kisileri dondurur."""
     match_date = request.GET.get('date')

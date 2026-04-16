@@ -65,7 +65,6 @@
 .avail-dot.yes { background: #28a745; }
 .avail-dot.no { background: #dc3545; }
 .copy-hint { font-size: 11px; color: #6c757d; }
-/* Inline edit */
 .editable { cursor: pointer; position: relative; }
 .editable:hover { background: #e7f1ff; outline: 1px dashed #0d6efd; }
 .edit-input {
@@ -76,6 +75,9 @@
     font-size: 11px; padding: 1px 2px; border: 1px solid #0d6efd;
     width: 100%; background: #fff;
 }
+.btn-delete-match { opacity: 0.4; font-size: 10px; cursor: pointer; }
+.btn-delete-match:hover { opacity: 1; color: #dc3545; }
+.undo-count { font-size: 10px; background: #6c757d; color: #fff; border-radius: 50%; padding: 0 5px; margin-left: 2px; }
 </style>
 {% endblock %}
 
@@ -122,8 +124,18 @@
         </select>
         {% endif %}
 
+        <!-- Mac Ekle butonu -->
+        <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#addMatchModal">
+            <i class="bi bi-plus-lg"></i> Mac Ekle
+        </button>
+
+        <!-- Geri Al butonu -->
+        <button class="btn btn-sm btn-outline-secondary" id="undo-btn" disabled onclick="undoLast()" title="Geri Al (Ctrl+Z)">
+            <i class="bi bi-arrow-counterclockwise"></i> Geri Al <span class="undo-count" id="undo-count" style="display:none;">0</span>
+        </button>
+
         <a href="{% url 'core:assignment_pdf' %}" class="btn btn-sm btn-outline-secondary" target="_blank">
-            <i class="bi bi-printer"></i> Yazdir
+            <i class="bi bi-printer"></i>
         </a>
 
         <span class="ms-auto text-muted" style="font-size:12px;">
@@ -132,12 +144,81 @@
         </span>
     </div>
     <div class="mt-1 copy-hint">
-        <i class="bi bi-info-circle"></i> Satir secmek icin tiklayip <kbd>Ctrl+C</kbd> kopyala, <kbd>Ctrl+V</kbd> yapistir. Takim/salon/saat uzerine cift tiklayarak duzenleyebilirsiniz.
+        <i class="bi bi-info-circle"></i>
+        <kbd>Ctrl+C</kbd> kopyala, <kbd>Ctrl+V</kbd> yapistir, <kbd>Ctrl+Z</kbd> geri al.
+        Cift tikla: takim/salon/saat duzenle. Satir sonundaki <i class="bi bi-x text-danger"></i> ile mac sil.
+    </div>
+</div>
+
+<!-- Mac Ekle Modal -->
+<div class="modal fade" id="addMatchModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="bi bi-plus-circle"></i> Yeni Mac Ekle</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-2">
+                    <div class="col-6">
+                        <label class="form-label" style="font-size:12px;">Tarih</label>
+                        <input type="date" id="new-match-date" class="form-control form-control-sm" value="{{ week_start|date:'Y-m-d' }}">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label" style="font-size:12px;">Saat</label>
+                        <input type="time" id="new-match-time" class="form-control form-control-sm" value="19:00">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label" style="font-size:12px;">A Takimi</label>
+                        <input type="text" id="new-match-home" class="form-control form-control-sm" placeholder="Ev sahibi">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label" style="font-size:12px;">B Takimi</label>
+                        <input type="text" id="new-match-away" class="form-control form-control-sm" placeholder="Deplasman">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label" style="font-size:12px;">Salon</label>
+                        <select id="new-match-venue" class="form-select form-select-sm">
+                            <option value="">-- Salon --</option>
+                            {% for v in venues %}
+                            <option value="{{ v.id }}">{{ v.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label" style="font-size:12px;">Lig</label>
+                        <select id="new-match-league" class="form-select form-select-sm">
+                            <option value="">-- Lig --</option>
+                            {% for lg in leagues %}
+                            <option value="{{ lg.id }}">{{ lg.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% if tournaments %}
+                    <div class="col-12">
+                        <label class="form-label" style="font-size:12px;">Turnuva</label>
+                        <select id="new-match-tournament" class="form-select form-select-sm">
+                            <option value="">-- Turnuva --</option>
+                            {% for t in tournaments %}
+                            <option value="{{ t.id }}">{{ t.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="modal-footer py-1">
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Iptal</button>
+                <button type="button" class="btn btn-sm btn-success" id="save-new-match">
+                    <i class="bi bi-check-lg"></i> Ekle
+                </button>
+            </div>
+        </div>
     </div>
 </div>
 
 <!-- Atama Tablosu -->
-<div class="table-responsive" style="max-height: calc(100vh - 200px); overflow: auto;">
+<div class="table-responsive" style="max-height: calc(100vh - 210px); overflow: auto;">
     <table class="table assignment-table" id="assignment-table">
         <thead>
             <tr>
@@ -156,6 +237,7 @@
                 <th class="bg-primary bg-opacity-75" style="min-width:130px;">SURE GOREVLISI</th>
                 <th class="bg-primary bg-opacity-75" style="min-width:130px;">SUT SAATI GOREVLISI</th>
                 <th class="bg-dark" style="min-width:130px;">GOZLEMCI</th>
+                <th style="width:30px;"></th>
             </tr>
         </thead>
         <tbody>
@@ -235,12 +317,19 @@
                         {% endfor %}
                     </select>
                 </td>
+                <!-- SIL -->
+                <td class="text-center">
+                    <span class="btn-delete-match" title="Bu maci sil" onclick="deleteMatch({{ item.match.id }}, this)">
+                        <i class="bi bi-x-lg"></i>
+                    </span>
+                </td>
             </tr>
             {% empty %}
             <tr>
-                <td colspan="15" class="text-center text-muted py-4">
+                <td colspan="16" class="text-center text-muted py-4">
                     <i class="bi bi-calendar-x" style="font-size: 2rem;"></i>
                     <br>Bu haftada oynanmamis mac bulunamadi.
+                    <br><small>Yukardaki "Mac Ekle" butonu ile yeni mac olusturabilirsiniz.</small>
                 </td>
             </tr>
             {% endfor %}
@@ -255,14 +344,81 @@ const CSRF_TOKEN = '{{ csrf_token }}';
 const AVAILABILITIES = {{ availabilities_json|safe }};
 const SAVE_URL = '{% url "core:assignment_save" %}';
 const MATCH_UPDATE_URL = '{% url "core:match_update" %}';
+const MATCH_CREATE_URL = '{% url "core:match_create_ajax" %}';
+const MATCH_DELETE_URL = '{% url "core:match_delete_ajax" %}';
 const WEEK_OFFSET = {{ week_offset }};
 
-// Salon listesi (inline venue edit icin)
 const VENUES = [
     {% for v in venues %}
     {id: {{ v.id }}, name: "{{ v.name|escapejs }}"},
     {% endfor %}
 ];
+
+// ---- UNDO STACK ----
+const undoStack = [];
+const MAX_UNDO = 50;
+
+function pushUndo(action) {
+    undoStack.push(action);
+    if (undoStack.length > MAX_UNDO) undoStack.shift();
+    updateUndoBtn();
+}
+
+function updateUndoBtn() {
+    const btn = document.getElementById('undo-btn');
+    const cnt = document.getElementById('undo-count');
+    btn.disabled = undoStack.length === 0;
+    if (undoStack.length > 0) {
+        cnt.style.display = '';
+        cnt.textContent = undoStack.length;
+    } else {
+        cnt.style.display = 'none';
+    }
+}
+
+function undoLast() {
+    if (undoStack.length === 0) return;
+    const action = undoStack.pop();
+    updateUndoBtn();
+
+    if (action.type === 'assignment') {
+        // Geri al: eski degeri yaz
+        const row = document.querySelector(`tr[data-match-id="${action.matchId}"]`);
+        if (!row) return;
+        const select = row.querySelector(`.assign-select[data-field="${action.field}"]`);
+        if (!select) return;
+        select.value = action.oldValue || '';
+        // Sunucuya da gonder
+        fetch(SAVE_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+            body: JSON.stringify({
+                match_id: action.matchId,
+                field: action.field,
+                user_id: action.oldValue ? parseInt(action.oldValue) : null
+            })
+        }).then(() => {
+            showStatus('<span class="text-info"><i class="bi bi-arrow-counterclockwise"></i> Geri alindi</span>');
+            applyAvailabilityColors();
+        });
+    } else if (action.type === 'match_field') {
+        const row = document.querySelector(`tr[data-match-id="${action.matchId}"]`);
+        if (!row) return;
+        const cell = row.querySelector(`[data-edit-field="${action.field}"]`);
+        if (cell) cell.textContent = action.oldValue;
+        fetch(MATCH_UPDATE_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+            body: JSON.stringify({ match_id: parseInt(action.matchId), field: action.field, value: action.oldValue })
+        }).then(() => showStatus('<span class="text-info"><i class="bi bi-arrow-counterclockwise"></i> Geri alindi</span>'));
+    }
+}
+
+function showStatus(html, duration) {
+    const el = document.getElementById('save-status');
+    el.innerHTML = html;
+    setTimeout(() => el.innerHTML = '', duration || 2000);
+}
 
 // Filtre uygula
 function applyFilter() {
@@ -308,14 +464,13 @@ function addDot(select, type) {
     select.parentElement.appendChild(dot);
 }
 
-// AJAX Kaydet (atama)
-function saveAssignment(select) {
+// AJAX Kaydet (atama) - UNDO destekli
+function saveAssignment(select, skipUndo) {
     const row = select.closest('tr');
     const matchId = row.dataset.matchId;
     const field = select.dataset.field;
     const userId = select.value || null;
-    const statusEl = document.getElementById('save-status');
-    statusEl.innerHTML = '<span class="text-warning"><i class="bi bi-hourglass-split"></i></span>';
+    showStatus('<span class="text-warning"><i class="bi bi-hourglass-split"></i></span>');
     select.classList.add('saving');
 
     fetch(SAVE_URL, {
@@ -327,27 +482,38 @@ function saveAssignment(select) {
     .then(data => {
         select.classList.remove('saving');
         if (data.success) {
-            statusEl.innerHTML = '<span class="text-success"><i class="bi bi-check-circle"></i></span>';
-            setTimeout(() => statusEl.innerHTML = '', 1500);
+            showStatus('<span class="text-success"><i class="bi bi-check-circle"></i></span>', 1500);
         } else {
-            statusEl.innerHTML = '<span class="text-danger"><i class="bi bi-x-circle"></i> ' + (data.error || 'Hata') + '</span>';
+            showStatus('<span class="text-danger"><i class="bi bi-x-circle"></i> ' + (data.error || 'Hata') + '</span>');
         }
         applyAvailabilityColors();
     })
     .catch(() => {
         select.classList.remove('saving');
-        statusEl.innerHTML = '<span class="text-danger">Baglanti hatasi</span>';
+        showStatus('<span class="text-danger">Baglanti hatasi</span>');
     });
 }
 
 document.querySelectorAll('.assign-select').forEach(select => {
-    select.addEventListener('change', () => saveAssignment(select));
+    // Degismeden onceki degeri sakla
+    select.addEventListener('focus', function() {
+        this._prevValue = this.value;
+    });
+    select.addEventListener('change', function() {
+        pushUndo({
+            type: 'assignment',
+            matchId: this.closest('tr').dataset.matchId,
+            field: this.dataset.field,
+            oldValue: this._prevValue || '',
+            newValue: this.value
+        });
+        saveAssignment(this);
+    });
 });
 
 // ---- Inline Mac Duzenleme ----
 function saveMatchField(matchId, field, value) {
-    const statusEl = document.getElementById('save-status');
-    statusEl.innerHTML = '<span class="text-warning"><i class="bi bi-hourglass-split"></i></span>';
+    showStatus('<span class="text-warning"><i class="bi bi-hourglass-split"></i></span>');
     return fetch(MATCH_UPDATE_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
@@ -356,22 +522,19 @@ function saveMatchField(matchId, field, value) {
     .then(r => r.json())
     .then(data => {
         if (data.success) {
-            statusEl.innerHTML = '<span class="text-success"><i class="bi bi-check-circle"></i></span>';
-            setTimeout(() => statusEl.innerHTML = '', 1500);
+            showStatus('<span class="text-success"><i class="bi bi-check-circle"></i></span>', 1500);
         } else {
-            statusEl.innerHTML = '<span class="text-danger">' + (data.error || 'Hata') + '</span>';
+            showStatus('<span class="text-danger">' + (data.error || 'Hata') + '</span>');
         }
         return data;
     })
-    .catch(() => {
-        statusEl.innerHTML = '<span class="text-danger">Baglanti hatasi</span>';
-    });
+    .catch(() => showStatus('<span class="text-danger">Baglanti hatasi</span>'));
 }
 
 document.querySelectorAll('.editable').forEach(cell => {
     cell.addEventListener('dblclick', function(e) {
         e.stopPropagation();
-        if (cell.querySelector('input, select')) return; // Zaten edit modunda
+        if (cell.querySelector('input, select')) return;
 
         const row = cell.closest('tr');
         const matchId = row.dataset.matchId;
@@ -380,7 +543,6 @@ document.querySelectorAll('.editable').forEach(cell => {
         const originalText = cell.textContent.trim();
 
         if (editType === 'venue') {
-            // Venue: select dropdown
             const sel = document.createElement('select');
             sel.className = 'venue-edit-select';
             sel.innerHTML = '<option value="">-- Salon Sec --</option>';
@@ -402,6 +564,7 @@ document.querySelectorAll('.editable').forEach(cell => {
                 cell.textContent = newId ? newName : '-';
                 cell.dataset.venueId = newId;
                 if (newId !== String(currentVenueId || '')) {
+                    pushUndo({ type: 'match_field', matchId, field: 'venue', oldValue: currentVenueId || '' });
                     saveMatchField(matchId, 'venue', newId);
                 }
             }
@@ -421,6 +584,7 @@ document.querySelectorAll('.editable').forEach(cell => {
                 const val = input.value || originalText;
                 cell.textContent = val;
                 if (val !== originalText) {
+                    pushUndo({ type: 'match_field', matchId, field, oldValue: originalText });
                     saveMatchField(matchId, 'time', val);
                 }
             }
@@ -431,7 +595,6 @@ document.querySelectorAll('.editable').forEach(cell => {
             });
 
         } else {
-            // Text input
             const input = document.createElement('input');
             input.type = 'text';
             input.className = 'edit-input';
@@ -445,6 +608,7 @@ document.querySelectorAll('.editable').forEach(cell => {
                 const val = input.value.trim();
                 cell.textContent = val || (field === 'round_info' ? '***' : '-');
                 if (val !== originalText && !(originalText === '***' && val === '')) {
+                    pushUndo({ type: 'match_field', matchId, field, oldValue: originalText });
                     saveMatchField(matchId, field, val);
                 }
             }
@@ -457,22 +621,89 @@ document.querySelectorAll('.editable').forEach(cell => {
     });
 });
 
-// ---- Kopyala / Yapistir ----
+// ---- Mac Sil ----
+function deleteMatch(matchId, btn) {
+    if (!confirm('Bu maci silmek istediginize emin misiniz?')) return;
+    const row = btn.closest('tr');
+    row.style.opacity = '0.4';
+    fetch(MATCH_DELETE_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+        body: JSON.stringify({ match_id: matchId })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            row.remove();
+            showStatus('<span class="text-success"><i class="bi bi-trash"></i> Mac silindi</span>');
+        } else {
+            row.style.opacity = '1';
+            showStatus('<span class="text-danger">' + (data.error || 'Hata') + '</span>');
+        }
+    })
+    .catch(() => {
+        row.style.opacity = '1';
+        showStatus('<span class="text-danger">Baglanti hatasi</span>');
+    });
+}
+
+// ---- Mac Ekle ----
+document.getElementById('save-new-match').addEventListener('click', function() {
+    const data = {
+        date: document.getElementById('new-match-date').value,
+        time: document.getElementById('new-match-time').value,
+        home_team: document.getElementById('new-match-home').value,
+        away_team: document.getElementById('new-match-away').value,
+        venue_id: document.getElementById('new-match-venue').value,
+        league_id: document.getElementById('new-match-league').value,
+        tournament_id: document.getElementById('new-match-tournament')?.value || '',
+    };
+
+    if (!data.date) { alert('Tarih secin'); return; }
+
+    fetch(MATCH_CREATE_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+        body: JSON.stringify(data)
+    })
+    .then(r => r.json())
+    .then(result => {
+        if (result.success) {
+            showStatus('<span class="text-success"><i class="bi bi-plus-circle"></i> Mac eklendi</span>');
+            // Sayfayi yenile
+            const modal = bootstrap.Modal.getInstance(document.getElementById('addMatchModal'));
+            if (modal) modal.hide();
+            setTimeout(() => location.reload(), 500);
+        } else {
+            alert(result.error || 'Mac eklenemedi');
+        }
+    })
+    .catch(() => alert('Baglanti hatasi'));
+});
+
+// ---- Kopyala / Yapistir / Geri Al ----
 let copiedAssignments = null;
 let copiedSourceRow = null;
 
 document.querySelectorAll('#assignment-table tbody tr').forEach(row => {
     row.addEventListener('click', function(e) {
-        if (e.target.closest('select') || e.target.closest('input')) return;
+        if (e.target.closest('select') || e.target.closest('input') || e.target.closest('.btn-delete-match')) return;
         document.querySelectorAll('.selected-row').forEach(r => r.classList.remove('selected-row'));
         this.classList.add('selected-row');
     });
 });
 
 document.addEventListener('keydown', function(e) {
-    // Eger bir input/select aktifse kopyala/yapistir yapma
     if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
 
+    // Ctrl+Z - Geri al
+    if (e.ctrlKey && e.key === 'z') {
+        e.preventDefault();
+        undoLast();
+        return;
+    }
+
+    // Ctrl+C
     if (e.ctrlKey && e.key === 'c') {
         const selectedRow = document.querySelector('.selected-row');
         if (!selectedRow) return;
@@ -486,12 +717,11 @@ document.addEventListener('keydown', function(e) {
         copiedSourceRow = selectedRow;
         selectedRow.classList.add('copied-source');
 
-        const statusEl = document.getElementById('save-status');
-        statusEl.innerHTML = '<span class="text-info"><i class="bi bi-clipboard-check"></i> Kopyalandi</span>';
-        setTimeout(() => statusEl.innerHTML = '', 2000);
+        showStatus('<span class="text-info"><i class="bi bi-clipboard-check"></i> Kopyalandi</span>');
         e.preventDefault();
     }
 
+    // Ctrl+V
     if (e.ctrlKey && e.key === 'v') {
         const selectedRow = document.querySelector('.selected-row');
         if (!selectedRow || !copiedAssignments) return;
@@ -500,13 +730,21 @@ document.addEventListener('keydown', function(e) {
         selects.forEach(sel => {
             const field = sel.dataset.field;
             if (copiedAssignments[field] !== undefined) {
+                const oldVal = sel.value;
                 sel.value = copiedAssignments[field];
-                saveAssignment(sel);
+                if (oldVal !== sel.value) {
+                    pushUndo({
+                        type: 'assignment',
+                        matchId: selectedRow.dataset.matchId,
+                        field: field,
+                        oldValue: oldVal,
+                        newValue: sel.value
+                    });
+                    saveAssignment(sel);
+                }
             }
         });
-
-        const statusEl = document.getElementById('save-status');
-        statusEl.innerHTML = '<span class="text-success"><i class="bi bi-clipboard-plus"></i> Yapistiriliyor...</span>';
+        showStatus('<span class="text-success"><i class="bi bi-clipboard-plus"></i> Yapistiriliyor...</span>');
         e.preventDefault();
     }
 });
