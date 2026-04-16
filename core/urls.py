@@ -28,6 +28,7 @@ urlpatterns = [
     # Atama
     path('atama/', views.assignment_sheet, name='assignment_sheet'),
     path('atama/kaydet/', views.assignment_save, name='assignment_save'),
+    path('atama/mac-guncelle/', views.match_update, name='match_update'),
 
     # API endpoints
     path('api/musait-kisiler/', views.api_available_people, name='api_available_people'),

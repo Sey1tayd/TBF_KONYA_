@@ -65,6 +65,17 @@
 .avail-dot.yes { background: #28a745; }
 .avail-dot.no { background: #dc3545; }
 .copy-hint { font-size: 11px; color: #6c757d; }
+/* Inline edit */
+.editable { cursor: pointer; position: relative; }
+.editable:hover { background: #e7f1ff; outline: 1px dashed #0d6efd; }
+.edit-input {
+    font-size: 11px; padding: 1px 3px; border: 1px solid #0d6efd;
+    width: 100%; box-sizing: border-box; background: #fff;
+}
+.venue-edit-select {
+    font-size: 11px; padding: 1px 2px; border: 1px solid #0d6efd;
+    width: 100%; background: #fff;
+}
 </style>
 {% endblock %}
 
@@ -72,7 +83,6 @@
 <!-- Hafta Navigasyonu + Filtre -->
 <div class="filter-bar">
     <div class="d-flex flex-wrap align-items-center gap-2">
-        <!-- Hafta navigasyonu -->
         <a href="?week={{ prev_week }}{% if selected_league %}&league={{ selected_league }}{% endif %}{% if selected_tournament %}&tournament={{ selected_tournament }}{% endif %}" class="btn btn-outline-secondary btn-sm">
             <i class="bi bi-chevron-left"></i>
         </a>
@@ -88,7 +98,6 @@
         </a>
         {% endif %}
 
-        <!-- Lig / Turnuva filtre -->
         <select id="league-filter" class="form-select form-select-sm ms-2" style="width:190px;" onchange="applyFilter()">
             <option value="">Tum Ligler</option>
             {% regroup leagues by get_category_display as league_groups %}
@@ -123,7 +132,7 @@
         </span>
     </div>
     <div class="mt-1 copy-hint">
-        <i class="bi bi-info-circle"></i> Satir secmek icin tiklayip <kbd>Ctrl+C</kbd> ile kopyala, baska satira tikla ve <kbd>Ctrl+V</kbd> ile yapistir.
+        <i class="bi bi-info-circle"></i> Satir secmek icin tiklayip <kbd>Ctrl+C</kbd> kopyala, <kbd>Ctrl+V</kbd> yapistir. Takim/salon/saat uzerine cift tiklayarak duzenleyebilirsiniz.
     </div>
 </div>
 
@@ -156,12 +165,12 @@
                     {{ item.match.date|date:"d.m.Y" }}
                     <br><small>{{ item.day_name }}</small>
                 </td>
-                <td class="time-cell">{{ item.match.time|time:"H:i" }}</td>
-                <td class="code-cell">{{ item.match.match_code }}</td>
+                <td class="time-cell editable" data-edit-field="time" data-edit-type="time">{{ item.match.time|time:"H:i" }}</td>
+                <td class="code-cell editable" data-edit-field="match_code" data-edit-type="text">{{ item.match.match_code }}</td>
                 <td class="league-cell" title="{{ item.match.competition_name }}">{{ item.match.competition_name }}</td>
-                <td class="team-cell" title="{{ item.match.home_team_name }}">{{ item.match.home_team_name }}</td>
-                <td class="team-cell" title="{{ item.match.away_team_name }}">{{ item.match.away_team_name }}</td>
-                <td class="venue-cell" title="{{ item.match.venue.name|default:'' }}">{{ item.match.venue.name|default:"-" }}</td>
+                <td class="team-cell editable" data-edit-field="home_team_name" data-edit-type="text" title="{{ item.match.home_team_name }}">{{ item.match.home_team_name }}</td>
+                <td class="team-cell editable" data-edit-field="away_team_name" data-edit-type="text" title="{{ item.match.away_team_name }}">{{ item.match.away_team_name }}</td>
+                <td class="venue-cell editable" data-edit-field="venue" data-edit-type="venue" data-venue-id="{{ item.match.venue_id|default:'' }}" title="{{ item.match.venue.name|default:'' }}">{{ item.match.venue.name|default:"-" }}</td>
                 <!-- BAS HAKEM -->
                 <td>
                     <select class="assign-select" data-field="head_referee" data-role="hakem">
@@ -180,7 +189,7 @@
                         {% endfor %}
                     </select>
                 </td>
-                <td class="round-info-cell">{{ item.match.round_info|default:"***" }}</td>
+                <td class="round-info-cell editable" data-edit-field="round_info" data-edit-type="text">{{ item.match.round_info|default:"***" }}</td>
                 <!-- YARDIMCI SAYI GOREVLISI (scorer_1) -->
                 <td>
                     <select class="assign-select" data-field="scorer_1" data-role="masa">
@@ -245,7 +254,15 @@
 const CSRF_TOKEN = '{{ csrf_token }}';
 const AVAILABILITIES = {{ availabilities_json|safe }};
 const SAVE_URL = '{% url "core:assignment_save" %}';
+const MATCH_UPDATE_URL = '{% url "core:match_update" %}';
 const WEEK_OFFSET = {{ week_offset }};
+
+// Salon listesi (inline venue edit icin)
+const VENUES = [
+    {% for v in venues %}
+    {id: {{ v.id }}, name: "{{ v.name|escapejs }}"},
+    {% endfor %}
+];
 
 // Filtre uygula
 function applyFilter() {
@@ -266,8 +283,6 @@ function applyAvailabilityColors() {
         const matchDate = row.dataset.matchDate;
         const userId = select.value;
         select.classList.remove('avail-yes', 'avail-no', 'assigned');
-
-        // Temizle eski dot
         const existingDot = select.parentElement.querySelector('.avail-dot');
         if (existingDot) existingDot.remove();
 
@@ -293,14 +308,14 @@ function addDot(select, type) {
     select.parentElement.appendChild(dot);
 }
 
-// AJAX Kaydet
+// AJAX Kaydet (atama)
 function saveAssignment(select) {
     const row = select.closest('tr');
     const matchId = row.dataset.matchId;
     const field = select.dataset.field;
     const userId = select.value || null;
     const statusEl = document.getElementById('save-status');
-    statusEl.innerHTML = '<span class="text-warning"><i class="bi bi-hourglass-split"></i> Kaydediliyor...</span>';
+    statusEl.innerHTML = '<span class="text-warning"><i class="bi bi-hourglass-split"></i></span>';
     select.classList.add('saving');
 
     fetch(SAVE_URL, {
@@ -312,8 +327,8 @@ function saveAssignment(select) {
     .then(data => {
         select.classList.remove('saving');
         if (data.success) {
-            statusEl.innerHTML = '<span class="text-success"><i class="bi bi-check-circle"></i> Kaydedildi</span>';
-            setTimeout(() => statusEl.innerHTML = '', 2000);
+            statusEl.innerHTML = '<span class="text-success"><i class="bi bi-check-circle"></i></span>';
+            setTimeout(() => statusEl.innerHTML = '', 1500);
         } else {
             statusEl.innerHTML = '<span class="text-danger"><i class="bi bi-x-circle"></i> ' + (data.error || 'Hata') + '</span>';
         }
@@ -329,45 +344,154 @@ document.querySelectorAll('.assign-select').forEach(select => {
     select.addEventListener('change', () => saveAssignment(select));
 });
 
+// ---- Inline Mac Duzenleme ----
+function saveMatchField(matchId, field, value) {
+    const statusEl = document.getElementById('save-status');
+    statusEl.innerHTML = '<span class="text-warning"><i class="bi bi-hourglass-split"></i></span>';
+    return fetch(MATCH_UPDATE_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+        body: JSON.stringify({ match_id: parseInt(matchId), field: field, value: value })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            statusEl.innerHTML = '<span class="text-success"><i class="bi bi-check-circle"></i></span>';
+            setTimeout(() => statusEl.innerHTML = '', 1500);
+        } else {
+            statusEl.innerHTML = '<span class="text-danger">' + (data.error || 'Hata') + '</span>';
+        }
+        return data;
+    })
+    .catch(() => {
+        statusEl.innerHTML = '<span class="text-danger">Baglanti hatasi</span>';
+    });
+}
+
+document.querySelectorAll('.editable').forEach(cell => {
+    cell.addEventListener('dblclick', function(e) {
+        e.stopPropagation();
+        if (cell.querySelector('input, select')) return; // Zaten edit modunda
+
+        const row = cell.closest('tr');
+        const matchId = row.dataset.matchId;
+        const field = cell.dataset.editField;
+        const editType = cell.dataset.editType;
+        const originalText = cell.textContent.trim();
+
+        if (editType === 'venue') {
+            // Venue: select dropdown
+            const sel = document.createElement('select');
+            sel.className = 'venue-edit-select';
+            sel.innerHTML = '<option value="">-- Salon Sec --</option>';
+            const currentVenueId = cell.dataset.venueId;
+            VENUES.forEach(v => {
+                const opt = document.createElement('option');
+                opt.value = v.id;
+                opt.textContent = v.name;
+                if (String(v.id) === String(currentVenueId)) opt.selected = true;
+                sel.appendChild(opt);
+            });
+            cell.textContent = '';
+            cell.appendChild(sel);
+            sel.focus();
+
+            function finishVenue() {
+                const newId = sel.value;
+                const newName = sel.options[sel.selectedIndex]?.text || '-';
+                cell.textContent = newId ? newName : '-';
+                cell.dataset.venueId = newId;
+                if (newId !== String(currentVenueId || '')) {
+                    saveMatchField(matchId, 'venue', newId);
+                }
+            }
+            sel.addEventListener('change', finishVenue);
+            sel.addEventListener('blur', finishVenue);
+
+        } else if (editType === 'time') {
+            const input = document.createElement('input');
+            input.type = 'time';
+            input.className = 'edit-input';
+            input.value = originalText;
+            cell.textContent = '';
+            cell.appendChild(input);
+            input.focus();
+
+            function finishTime() {
+                const val = input.value || originalText;
+                cell.textContent = val;
+                if (val !== originalText) {
+                    saveMatchField(matchId, 'time', val);
+                }
+            }
+            input.addEventListener('blur', finishTime);
+            input.addEventListener('keydown', function(ev) {
+                if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); }
+                if (ev.key === 'Escape') { cell.textContent = originalText; }
+            });
+
+        } else {
+            // Text input
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'edit-input';
+            input.value = originalText === '***' ? '' : originalText;
+            cell.textContent = '';
+            cell.appendChild(input);
+            input.focus();
+            input.select();
+
+            function finishText() {
+                const val = input.value.trim();
+                cell.textContent = val || (field === 'round_info' ? '***' : '-');
+                if (val !== originalText && !(originalText === '***' && val === '')) {
+                    saveMatchField(matchId, field, val);
+                }
+            }
+            input.addEventListener('blur', finishText);
+            input.addEventListener('keydown', function(ev) {
+                if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); }
+                if (ev.key === 'Escape') { cell.textContent = originalText; }
+            });
+        }
+    });
+});
+
 // ---- Kopyala / Yapistir ----
 let copiedAssignments = null;
 let copiedSourceRow = null;
 
-// Satir secimi (tiklayarak)
 document.querySelectorAll('#assignment-table tbody tr').forEach(row => {
     row.addEventListener('click', function(e) {
-        // Select/option tiklama ise gecis
-        if (e.target.closest('select')) return;
-        // Mevcut secimi kaldir
+        if (e.target.closest('select') || e.target.closest('input')) return;
         document.querySelectorAll('.selected-row').forEach(r => r.classList.remove('selected-row'));
         this.classList.add('selected-row');
     });
 });
 
-// Ctrl+C: secili satirin atamalarini kopyala
 document.addEventListener('keydown', function(e) {
+    // Eger bir input/select aktifse kopyala/yapistir yapma
+    if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
+
     if (e.ctrlKey && e.key === 'c') {
         const selectedRow = document.querySelector('.selected-row');
         if (!selectedRow) return;
 
-        // Bos mu kontrol - en az bir atama varsa kopyala
         const selects = selectedRow.querySelectorAll('.assign-select');
         copiedAssignments = {};
         selects.forEach(sel => {
             copiedAssignments[sel.dataset.field] = sel.value;
         });
-        // Eski kaynak isaretini temizle
         if (copiedSourceRow) copiedSourceRow.classList.remove('copied-source');
         copiedSourceRow = selectedRow;
         selectedRow.classList.add('copied-source');
 
         const statusEl = document.getElementById('save-status');
-        statusEl.innerHTML = '<span class="text-info"><i class="bi bi-clipboard-check"></i> Atamalar kopyalandi</span>';
+        statusEl.innerHTML = '<span class="text-info"><i class="bi bi-clipboard-check"></i> Kopyalandi</span>';
         setTimeout(() => statusEl.innerHTML = '', 2000);
         e.preventDefault();
     }
 
-    // Ctrl+V: kopyalanan atamalari secili satira yapistir
     if (e.ctrlKey && e.key === 'v') {
         const selectedRow = document.querySelector('.selected-row');
         if (!selectedRow || !copiedAssignments) return;
@@ -382,7 +506,7 @@ document.addEventListener('keydown', function(e) {
         });
 
         const statusEl = document.getElementById('save-status');
-        statusEl.innerHTML = '<span class="text-success"><i class="bi bi-clipboard-plus"></i> Atamalar yapistiriliyor...</span>';
+        statusEl.innerHTML = '<span class="text-success"><i class="bi bi-clipboard-plus"></i> Yapistiriliyor...</span>';
         e.preventDefault();
     }
 });

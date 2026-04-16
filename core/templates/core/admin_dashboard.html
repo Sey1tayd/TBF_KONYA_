@@ -164,7 +164,7 @@
         {% if match.round_info %}
         <span class="badge bg-danger" style="font-size:10px;">{{ match.round_info }}</span>
         {% endif %}
-        <span class="match-venue" {% if match._venue_color %}style="background:{{ match._venue_color }};"{% endif %}>
+        <span class="match-venue" {% if match.venue_color %}style="background:{{ match.venue_color }};"{% endif %}>
             <i class="bi bi-geo-alt" style="font-size:10px;"></i> {{ match.venue.name|default:"-" }}
         </span>
         <span>
@@ -177,16 +177,16 @@
             {% endif %}
         </span>
       </div>
-      {% if match._assignment %}
+      {% if match.cached_assignment %}
       <div class="assignment-info">
-        {% if match._assignment.head_referee %}
-        <span><span class="ref-label">1.Hakem:</span> <span class="ref-name">{{ match._assignment.head_referee.full_name }}</span></span>
+        {% if match.cached_assignment.head_referee %}
+        <span><span class="ref-label">1.Hakem:</span> <span class="ref-name">{{ match.cached_assignment.head_referee.full_name }}</span></span>
         {% endif %}
-        {% if match._assignment.assistant_referee %}
-        <span><span class="ref-label">2.Hakem:</span> <span class="ref-name">{{ match._assignment.assistant_referee.full_name }}</span></span>
+        {% if match.cached_assignment.assistant_referee %}
+        <span><span class="ref-label">2.Hakem:</span> <span class="ref-name">{{ match.cached_assignment.assistant_referee.full_name }}</span></span>
         {% endif %}
-        {% if match._assignment.observer %}
-        <span><span class="ref-label">Gozlemci:</span> <span class="ref-name">{{ match._assignment.observer.full_name }}</span></span>
+        {% if match.cached_assignment.observer %}
+        <span><span class="ref-label">Gozlemci:</span> <span class="ref-name">{{ match.cached_assignment.observer.full_name }}</span></span>
         {% endif %}
       </div>
       {% endif %}

@@ -130,7 +130,7 @@
         <strong>{{ match.away_team_name|default:"TBD" }}</strong>
       </span>
       {% if match.round_info %}<span class="badge bg-danger" style="font-size:10px;">{{ match.round_info }}</span>{% endif %}
-      <span class="match-venue" {% if match._venue_color %}style="background:{{ match._venue_color }};"{% endif %}>
+      <span class="match-venue" {% if match.venue_color %}style="background:{{ match.venue_color }};"{% endif %}>
         <i class="bi bi-geo-alt" style="font-size:10px;"></i> {{ match.venue.name|default:"-" }}
       </span>
       <span>

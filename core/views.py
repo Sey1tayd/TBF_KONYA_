@@ -106,8 +106,8 @@ def _admin_dashboard(request, profile):
 
     # Her maca atama ve salon rengini ekle
     for m in qs:
-        m._assignment = assignments_map.get(m.id)
-        m._venue_color = venue_color_map.get(m.venue_id, '')
+        m.cached_assignment = assignments_map.get(m.id)
+        m.venue_color = venue_color_map.get(m.venue_id, '')
 
     # Gunlere gore grupla
     from collections import defaultdict
@@ -201,7 +201,7 @@ def _official_dashboard(request, profile):
 
     # Her maca salon rengini ekle
     for m in all_week_matches:
-        m._venue_color = venue_color_map.get(m.venue_id, '')
+        m.venue_color = venue_color_map.get(m.venue_id, '')
 
     # Gunlere gore grupla
     days_dict = defaultdict(list)
@@ -813,6 +813,9 @@ def assignment_sheet(request):
         key = f"{avail.user_id}_{avail.date.isoformat()}"
         availabilities[key] = avail.is_available
 
+    from core.models import Venue
+    venues = Venue.objects.all().order_by('name')
+
     context = {
         'match_data': match_data,
         'referees': referees_qs,
@@ -820,6 +823,7 @@ def assignment_sheet(request):
         'observers': observers,
         'leagues': leagues,
         'tournaments': tournaments,
+        'venues': venues,
         'selected_league': league_id,
         'selected_tournament': tournament_id,
         'availabilities_json': json.dumps(availabilities),
@@ -881,6 +885,56 @@ def assignment_save(request):
         'field': field,
         'user_name': user_name,
     })
+
+
+@login_required
+@require_POST
+def match_update(request):
+    """Macin detaylarini inline duzenle (takim adi, salon, saat vb.)."""
+    profile = _get_profile(request)
+    if not _is_admin(profile):
+        return JsonResponse({'error': 'Yetkiniz yok'}, status=403)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Gecersiz veri'}, status=400)
+
+    match_id = data.get('match_id')
+    field = data.get('field')
+    value = data.get('value', '')
+
+    valid_fields = ['home_team_name', 'away_team_name', 'match_code', 'round_info', 'time', 'venue']
+    if field not in valid_fields:
+        return JsonResponse({'error': 'Gecersiz alan'}, status=400)
+
+    try:
+        match = Match.objects.get(id=match_id)
+    except Match.DoesNotExist:
+        return JsonResponse({'error': 'Mac bulunamadi'}, status=404)
+
+    if field == 'venue':
+        if value:
+            from core.models import Venue
+            try:
+                venue = Venue.objects.get(id=int(value))
+                match.venue = venue
+            except (Venue.DoesNotExist, ValueError):
+                return JsonResponse({'error': 'Salon bulunamadi'}, status=404)
+        else:
+            match.venue = None
+    elif field == 'time':
+        try:
+            from datetime import time as dt_time
+            parts = value.split(':')
+            match.time = dt_time(int(parts[0]), int(parts[1]))
+        except (ValueError, IndexError):
+            return JsonResponse({'error': 'Gecersiz saat'}, status=400)
+    else:
+        setattr(match, field, value)
+
+    match.save()
+    return JsonResponse({'success': True, 'match_id': match_id, 'field': field, 'value': value})
 
 
 @login_required
